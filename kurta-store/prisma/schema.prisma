@@ -1,0 +1,58 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  priceINR    Float
+  images      Json     // Cloudinary URL array: ["https://res.cloudinary.com/..."]
+  sizes       Json     // Stock map: {"XS": 5, "S": 15, "M": 10, "L": 0, "XL": 8}
+  category    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("products")
+}
+
+model Order {
+  id               String   @id @default(uuid())
+  customerEmail    String
+  customerPhone    String
+  shippingAddress  Json
+  items            Json     // [{ productId, title, size, quantity, priceINR }]
+  totalAmountINR   Float
+  currency         String   @default("INR")
+  paymentStatus    String   @default("PENDING") // PENDING | PAID | FAILED
+  paymentGatewayId String?
+  createdAt        DateTime @default(now())
+
+  @@map("orders")
+}
+
+model DesignConfig {
+  id               String   @id @default("current_config")
+  heroBanners      Json     // [{ url: string, altText: string, linkHref: string }]
+  isLookbookActive Boolean  @default(true)
+  activeTheme      String   @default("pastel-pink")
+  promoBannerText  String?  @db.Text
+  updatedAt        DateTime @updatedAt
+
+  @@map("design_configs")
+}
+
+model Coupon {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  discountPercent Int
+  expiryDate      DateTime
+  isActive        Boolean  @default(true)
+
+  @@map("coupons")
+}
