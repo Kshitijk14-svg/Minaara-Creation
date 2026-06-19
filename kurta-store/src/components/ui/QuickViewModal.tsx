@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { trackAddToCart } from '@/lib/analytics';
-import type { Product } from '@/types/schema';
+import type { Product, SizeLabel } from '@/types/schema';
 
 interface QuickViewModalProps {
   product: Product | null;
@@ -38,20 +38,22 @@ const modalVariants = {
 export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps) {
   const { addItem } = useCart();
   const { currency, convertPrice } = useCurrency();
-  const [selectedSize, setSelectedSize] = React.useState<string>('');
+  const [selectedSize, setSelectedSize] = React.useState<SizeLabel | ''>('');
 
   const [prevProductId, setPrevProductId] = React.useState<string | null>(null);
 
   if (product && product.id !== prevProductId) {
     setPrevProductId(product.id);
     const firstAvailable = Object.entries(product.sizes).find(([, stock]) => stock > 0);
-    setSelectedSize(firstAvailable ? firstAvailable[0] : '');
+    setSelectedSize(firstAvailable ? (firstAvailable[0] as SizeLabel) : '');
   }
 
   const handleAddToCart = useCallback(() => {
     if (!product || !selectedSize) return;
+    const variantId = product.variants.find((v) => v.size === selectedSize)?.id || `mock-variant-${product.id}-${selectedSize}`;
     addItem({
       productId: product.id,
+      variantId,
       title: product.title,
       size: selectedSize,
       quantity: 1,
@@ -86,8 +88,14 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
           aria-label={`Quick view: ${product.title}`}
         >
           <motion.div
-            className="relative w-full max-w-2xl bg-brand-ivory rounded-2xl overflow-hidden shadow-2xl"
-            style={{ backgroundColor: 'var(--color-brand-ivory)' }}
+            className="relative w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
+            style={{
+              backgroundColor: 'var(--glass-bg)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid var(--glass-border)',
+              boxShadow: 'var(--glass-shadow)',
+            }}
             variants={modalVariants}
             initial="hidden"
             animate="visible"
@@ -154,7 +162,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                     {Object.entries(product.sizes).map(([size, stock]) => (
                       <button
                         key={size}
-                        onClick={() => stock > 0 && setSelectedSize(size)}
+                        onClick={() => stock > 0 && setSelectedSize(size as SizeLabel)}
                         disabled={stock === 0}
                         className={`px-3 py-1.5 text-sm border rounded-md transition-all duration-200 ${
                           selectedSize === size

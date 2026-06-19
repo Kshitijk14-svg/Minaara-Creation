@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { redis } from '@/lib/redis';
+import { auth } from '@/lib/auth';
 import type { DesignConfig } from '@/types/schema';
 
 const CACHE_KEY = 'design_config';
@@ -64,8 +66,8 @@ export async function GET() {
 
     const result = dbConfigToSchema(config);
 
-    // Store in Redis (no TTL — invalidated on admin save)
-    await redis.set(CACHE_KEY, result).catch(() => null);
+    // 1-hour TTL as a safety net; admin PATCH calls redis.del to invalidate immediately
+    await redis.set(CACHE_KEY, result, { ex: 3600 }).catch(() => null);
 
     return NextResponse.json(result);
   } catch (err) {
@@ -79,10 +81,19 @@ export async function GET() {
 // PATCH /api/config/design — admin update
 export async function PATCH(request: NextRequest) {
   try {
-    // Admin auth
+    // Admin auth: support either Bearer ADMIN_SECRET_KEY OR NextAuth role session
     const authHeader = request.headers.get('Authorization');
     const expectedToken = `Bearer ${process.env.ADMIN_SECRET_KEY}`;
-    if (!authHeader || authHeader !== expectedToken) {
+    let isAuthorized = !!(authHeader && authHeader === expectedToken);
+
+    if (!isAuthorized) {
+      const session = await auth();
+      if (session?.user && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes((session.user as any).role)) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -113,6 +124,9 @@ export async function PATCH(request: NextRequest) {
 
     // Invalidate Redis cache
     await redis.del(CACHE_KEY).catch(() => null);
+
+    // Invalidate Next.js cache for storefront
+    revalidatePath('/');
 
     return NextResponse.json(dbConfigToSchema(updated));
   } catch (err) {

@@ -15,23 +15,26 @@ export async function GET(request: NextRequest) {
 
     // Fetch all active products
     const products = await db.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
       select: {
         id: true,
         title: true,
-        sizes: true,
+        variants: {
+          select: {
+            size: true,
+            stock: true,
+          }
+        },
       },
     });
 
     const lowStockProducts: string[] = [];
 
     for (const product of products) {
-      const sizeMap = product.sizes as Record<string, number>;
-      const hasLowStock = Object.values(sizeMap).some((stock) => stock <= 3);
-      if (hasLowStock) {
-        const lowSizes = Object.entries(sizeMap)
-          .filter(([, stock]) => stock <= 3)
-          .map(([size, stock]) => `${size}:${stock}`)
+      const lowVariants = product.variants.filter((v) => v.stock <= 3);
+      if (lowVariants.length > 0) {
+        const lowSizes = lowVariants
+          .map((v) => `${v.size}:${v.stock}`)
           .join(', ');
         lowStockProducts.push(`${product.title} (${lowSizes})`);
 
@@ -41,6 +44,15 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+
+    // Reconcile coupon.usedCount against actual CouponUsage rows to fix any drift
+    // caused by manual DB edits or failed mid-transaction writes.
+    await db.$executeRaw`
+      UPDATE coupons c
+      SET c.usedCount = (
+        SELECT COUNT(*) FROM coupon_usages cu WHERE cu.couponId = c.id
+      )
+    `;
 
     return NextResponse.json({
       scanned: products.length,

@@ -4,7 +4,55 @@ import { CurrencyProvider } from '@/components/providers/CurrencyProvider';
 import { CartProvider } from '@/components/providers/CartProvider';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
+import { Navbar } from '@/components/ui/Navbar';
+import { auth } from '@/lib/auth';
 import './globals.css';
+
+async function getActiveTheme(): Promise<string> {
+  if (
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.UPSTASH_REDIS_REST_URL?.includes('your-upstash-url') ||
+    process.env.DATABASE_URL?.includes('password@localhost')
+  ) {
+    return 'pastel-pink';
+  }
+
+  const CACHE_KEY = 'design_config';
+  let theme = 'pastel-pink'; // default fallback
+
+  // Redis is the primary source (TTL 1h, invalidated on admin save)
+  try {
+    const { redis } = await import('@/lib/redis');
+    const cached = await redis.get<{ activeTheme: string }>(CACHE_KEY);
+    if (cached?.activeTheme) {
+      return cached.activeTheme;
+    }
+  } catch (e) {
+    console.error('Redis error in layout:', e);
+  }
+
+  // Fallback to Prisma with a timeout so build doesn't block/fail
+  const withTimeout = <T,>(promise: Promise<T>, ms = 1500) => {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), ms)),
+    ]);
+  };
+
+  try {
+    const { db } = await import('@/lib/db');
+    const config = await withTimeout(
+      db.designConfig.findFirst({ where: { id: 'current_config' }, select: { activeTheme: true } }),
+    );
+    if (config?.activeTheme) {
+      theme = config.activeTheme;
+    }
+  } catch (e) {
+    console.warn('Prisma error in layout (falling back to default):', (e as Error).message);
+  }
+
+  return theme;
+}
 
 export const metadata: Metadata = {
   title: {
@@ -49,9 +97,14 @@ const jetBrainsMono = JetBrains_Mono({
   variable: '--font-mono',
 });
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  const activeTheme = await getActiveTheme();
+  const themeClass = `theme-${activeTheme}`;
+  
   return (
-    <html lang="en" className={`${cormorant.variable} ${dmSans.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${cormorant.variable} ${dmSans.variable} ${jetBrainsMono.variable} ${themeClass}`}>
+
       <head>
         {/* JSON-LD Structured Data for SEO */}
         <script
@@ -118,6 +171,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CartProvider>
             {/* Silk Curtain — fires on every route change */}
             <PageTransition />
+            <Navbar session={session} />
             <SmoothScrollProvider>
               {children}
             </SmoothScrollProvider>

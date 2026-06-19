@@ -1,44 +1,219 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String?
+  role         Role          @default(CUSTOMER)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  couponUsages CouponUsage[]
+  orders       Order[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([email, expiresAt])
+  @@map("otps")
+}
+
+model Collection {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?   @db.Text
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@index([isActive, sortOrder])
+  @@index([slug])
+  @@map("collections")
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  title       String
-  description String   @db.Text
-  priceINR    Float
-  images      Json     // Cloudinary URL array: ["https://res.cloudinary.com/..."]
-  sizes       Json     // Stock map: {"XS": 5, "S": 15, "M": 10, "L": 0, "XL": 8}
-  category    String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id                String               @id @default(uuid())
+  title             String
+  description       String               @db.Text
+  priceINR          Float
+  isActive          Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  collectionId      String
+  compareAtPriceINR Float?
+  deletedAt         DateTime?
+  isFeatured        Boolean              @default(false)
+  slug              String               @unique
+  updatedAt         DateTime             @updatedAt
+  orderItems        OrderItem[]
+  images            ProductImage[]
+  variants          ProductSizeVariant[]
+  collection        Collection           @relation(fields: [collectionId], references: [id])
 
+  @@index([collectionId])
+  @@index([isActive, createdAt])
+  @@index([slug])
+  @@index([isFeatured, isActive])
+  @@index([deletedAt])
+  @@fulltext([title, description])
   @@map("products")
 }
 
-model Order {
-  id               String   @id @default(uuid())
-  customerEmail    String
-  customerPhone    String
-  shippingAddress  Json
-  items            Json     // [{ productId, title, size, quantity, priceINR }]
-  totalAmountINR   Float
-  currency         String   @default("INR")
-  paymentStatus    String   @default("PENDING") // PENDING | PAID | FAILED
-  paymentGatewayId String?
-  createdAt        DateTime @default(now())
+model ProductSizeVariant {
+  id         String      @id @default(uuid())
+  productId  String
+  size       SizeLabel
+  stock      Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  orderItems OrderItem[]
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  @@unique([productId, size])
+  @@index([productId])
+  @@map("product_size_variants")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  url       String
+  altText   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+model Order {
+  id                String           @id @default(uuid())
+  customerEmail     String
+  customerPhone     String
+  totalAmountINR    Float
+  currency          String           @default("INR")
+  paymentStatus     PaymentStatus    @default(PENDING)
+  paymentGatewayId  String?
+  createdAt         DateTime         @default(now())
+  cancelledAt       DateTime?
+  deliveredAt       DateTime?
+  discountAmountINR Float            @default(0)
+  notes             String?          @db.Text
+  orderNumber       String           @unique
+  paymentMethod     String?
+  status            OrderStatus      @default(PENDING)
+  subtotalINR       Float
+  updatedAt         DateTime         @updatedAt
+  userId            String?
+  couponUsage       CouponUsage?
+  items             OrderItem[]
+  user              User?            @relation(fields: [userId], references: [id])
+  shippingAddress   ShippingAddress?
+
+  @@index([userId])
+  @@index([customerEmail])
+  @@index([status, createdAt])
+  @@index([paymentStatus])
+  @@index([createdAt])
   @@map("orders")
+}
+
+model OrderItem {
+  id        String              @id @default(uuid())
+  orderId   String
+  productId String?
+  variantId String?
+  title     String
+  size      SizeLabel
+  imageUrl  String?
+  quantity  Int
+  priceINR  Float
+  order     Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product?            @relation(fields: [productId], references: [id])
+  variant   ProductSizeVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId], map: "order_items_variantId_fkey")
+  @@map("order_items")
+}
+
+model ShippingAddress {
+  id       String  @id @default(uuid())
+  orderId  String  @unique
+  fullName String
+  line1    String
+  line2    String?
+  city     String
+  state    String
+  pincode  String
+  country  String  @default("India")
+  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_addresses")
+}
+
+model Coupon {
+  id                String        @id @default(uuid())
+  code              String        @unique
+  expiryDate        DateTime
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  discountType      DiscountType  @default(PERCENT)
+  discountValue     Float
+  maxDiscountINR    Float?
+  maxUses           Int?
+  minOrderAmountINR Float         @default(0)
+  perUserLimit      Int           @default(1)
+  updatedAt         DateTime      @updatedAt
+  usedCount         Int           @default(0)
+  orders            CouponUsage[]
+
+  @@index([code])
+  @@index([isActive, expiryDate])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id       String   @id @default(uuid())
+  couponId String
+  userId   String
+  orderId  String   @unique
+  usedAt   DateTime @default(now())
+  coupon   Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId])
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_usages")
 }
 
 model DesignConfig {
   id               String   @id @default("current_config")
-  heroBanners      Json     // [{ url: string, altText: string, linkHref: string }]
+  heroBanners      Json
   isLookbookActive Boolean  @default(true)
   activeTheme      String   @default("pastel-pink")
   promoBannerText  String?  @db.Text
@@ -47,12 +222,40 @@ model DesignConfig {
   @@map("design_configs")
 }
 
-model Coupon {
-  id              String   @id @default(uuid())
-  code            String   @unique
-  discountPercent Int
-  expiryDate      DateTime
-  isActive        Boolean  @default(true)
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  CUSTOMER
+}
 
-  @@map("coupons")
+enum SizeLabel {
+  XS
+  S
+  M
+  L
+  XL
+  XXL
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
 }

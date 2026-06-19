@@ -19,12 +19,12 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
       smoothWheel: true,
     });
 
-    let rafId: number;
-    function raf(time: number) {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    }
-    rafId = requestAnimationFrame(raf);
+    // Unify the rAF loop with GSAP ticker to prevent layout thrashing and boost FPS
+    const updateLenis = (time: number) => {
+      lenis.raf(time * 1000);
+    };
+    gsap.ticker.add(updateLenis);
+    gsap.ticker.lagSmoothing(0);
 
     // Sync GSAP ScrollTrigger with Lenis
     const syncScrollTrigger = () => {
@@ -47,7 +47,7 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
     syncScrollTrigger();
 
     return () => {
-      cancelAnimationFrame(rafId);
+      gsap.ticker.remove(updateLenis);
       lenis.destroy();
     };
   }, []);

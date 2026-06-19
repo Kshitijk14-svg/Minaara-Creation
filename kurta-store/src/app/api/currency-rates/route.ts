@@ -37,6 +37,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid rates data' }, { status: 400 });
     }
 
+    // Validate rate ranges (INR is base = 1, USD/EUR are per-INR fractions)
+    const { INR, USD, EUR, fetchedAt } = parsed.data;
+    const now = Date.now();
+    if (
+      INR < 0.5 || INR > 2 ||
+      USD < 0.001 || USD > 0.1 ||
+      EUR < 0.001 || EUR > 0.1 ||
+      fetchedAt > now + 60_000 || fetchedAt < now - 48 * 60 * 60 * 1000
+    ) {
+      return NextResponse.json({ error: 'Rate values out of acceptable range' }, { status: 422 });
+    }
+
     await redis.set(CACHE_KEY, parsed.data);
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -65,7 +65,13 @@ export function SizeGuideModal({ isOpen, onClose }: SizeGuideModalProps) {
         >
           <motion.div
             className="relative h-full sm:h-auto sm:max-h-[90vh] w-full sm:max-w-lg rounded-l-2xl sm:rounded-2xl overflow-y-auto"
-            style={{ backgroundColor: 'var(--color-brand-ivory)' }}
+            style={{
+              backgroundColor: 'var(--glass-bg)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid var(--glass-border)',
+              boxShadow: 'var(--glass-shadow)',
+            }}
             variants={drawerVariants}
             initial="hidden"
             animate="visible"
