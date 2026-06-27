@@ -2,48 +2,54 @@
  * GET    /api/collections      — list all active collections (public, cached 1h)
  * POST   /api/collections      — create a collection (admin)
  * PATCH  /api/collections      — update a collection (admin)
- * DELETE /api/collections      — deactivate a collection (admin, blocks if products linked)
+ * DELETE /api/collections?id=  — deactivate a collection (admin)
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/db';
+import { db } from '@/db/index';
+import { collections, products } from '@/db/schema';
 import { isAuthorized } from '@/lib/api-auth';
 import {
-  cacheGet,
-  cacheSet,
-  invalidateTags,
-  CacheKeys,
-  CacheTags,
+  cacheGet, cacheSet, invalidateTags,
+  CacheKeys, CacheTags,
 } from '@/lib/cache';
+import { and, asc, count, eq, isNull } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 
-const COLLECTIONS_TTL = 3600; // 1 hour
+const COLLECTIONS_TTL = 3600;
 
 const CreateCollectionSchema = z.object({
-  name: z.string().min(1).max(100),
-  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase, digits, hyphens'),
+  name:        z.string().min(1).max(100),
+  slug:        z.string().min(1).max(100).regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
-  imageUrl: z.string().url().optional(),
-  isActive: z.boolean().optional().default(true),
-  sortOrder: z.number().int().min(0).optional().default(0),
+  imageUrl:    z.string().url().optional(),
+  isActive:    z.boolean().optional().default(true),
+  sortOrder:   z.number().int().min(0).optional().default(0),
 });
 
 const UpdateCollectionSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).max(100).optional(),
-  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/).optional(),
+  id:          z.string().uuid(),
+  name:        z.string().min(1).max(100).optional(),
+  slug:        z.string().min(1).max(100).regex(/^[a-z0-9-]+$/).optional(),
   description: z.string().optional(),
-  imageUrl: z.string().url().nullable().optional(),
-  isActive: z.boolean().optional(),
-  sortOrder: z.number().int().min(0).optional(),
+  imageUrl:    z.string().url().nullable().optional(),
+  isActive:    z.boolean().optional(),
+  sortOrder:   z.number().int().min(0).optional(),
 });
 
-// ── GET ──────────────────────────────────────────────────────────────────────
+function serializeCollection(c: any) {
+  return {
+    ...c,
+    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const includeInactive = searchParams.get('includeInactive') === 'true';
+    const includeInactive  = searchParams.get('includeInactive') === 'true';
 
     const cacheKey = CacheKeys.collections.list();
     if (!includeInactive) {
@@ -51,23 +57,32 @@ export async function GET(request: NextRequest) {
       if (cached) return NextResponse.json(cached);
     }
 
-    const where = includeInactive ? {} : { isActive: true };
-
-    const collections = await db.collection.findMany({
-      where,
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: {
-        _count: { select: { products: { where: { deletedAt: null, isActive: true } } } },
-      },
-    });
+    const rows = await db
+      .select({
+        id:          collections.id,
+        name:        collections.name,
+        slug:        collections.slug,
+        description: collections.description,
+        imageUrl:    collections.imageUrl,
+        isActive:    collections.isActive,
+        sortOrder:   collections.sortOrder,
+        createdAt:   collections.createdAt,
+        updatedAt:   collections.updatedAt,
+        productCount: count(products.id),
+      })
+      .from(collections)
+      .leftJoin(products, and(
+        eq(products.collectionId, collections.id),
+        eq(products.isActive, true),
+        isNull(products.deletedAt),
+      ))
+      .where(includeInactive ? undefined : eq(collections.isActive, true))
+      .groupBy(collections.id)
+      .orderBy(asc(collections.sortOrder), asc(collections.name));
 
     const result = {
-      data: collections.map((c) => ({
-        ...c,
-        createdAt: c.createdAt.toISOString(),
-        updatedAt: c.updatedAt.toISOString(),
-      })),
-      total: collections.length,
+      data:  rows.map(serializeCollection),
+      total: rows.length,
     };
 
     if (!includeInactive) {
@@ -85,37 +100,33 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ── POST ─────────────────────────────────────────────────────────────────────
-
 export async function POST(request: NextRequest) {
   try {
     if (!(await isAuthorized(request))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body: unknown = await request.json();
+    const body   = await request.json();
     const parsed = CreateCollectionSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
     }
 
-    const collection = await db.collection.create({ data: parsed.data });
+    const id = randomUUID();
+    await db.insert(collections).values({ id, ...parsed.data });
+
+    const [collection] = await db
+      .select()
+      .from(collections)
+      .where(eq(collections.id, id))
+      .limit(1);
 
     await invalidateTags([CacheTags.collections]);
     revalidatePath('/');
 
-    return NextResponse.json(
-      {
-        collection: {
-          ...collection,
-          createdAt: collection.createdAt.toISOString(),
-          updatedAt: collection.updatedAt.toISOString(),
-        },
-      },
-      { status: 201 },
-    );
+    return NextResponse.json({ collection: serializeCollection(collection) }, { status: 201 });
   } catch (err: any) {
-    if (err?.code === 'P2002') {
+    if (err?.code === 'ER_DUP_ENTRY') {
       return NextResponse.json({ error: 'Collection name or slug already exists' }, { status: 409 });
     }
     if (process.env.NODE_ENV !== 'production') console.error('[POST /api/collections]', err);
@@ -123,15 +134,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ── PATCH ────────────────────────────────────────────────────────────────────
-
 export async function PATCH(request: NextRequest) {
   try {
     if (!(await isAuthorized(request))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body: unknown = await request.json();
+    const body   = await request.json();
     const parsed = UpdateCollectionSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
@@ -139,30 +148,38 @@ export async function PATCH(request: NextRequest) {
 
     const { id, ...updateData } = parsed.data;
 
-    const collection = await db.collection.update({
-      where: { id },
-      data: { ...updateData, updatedAt: new Date() },
-    });
+    const [existing] = await db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(eq(collections.id, id))
+      .limit(1);
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Collection not found' }, { status: 404 });
+    }
+
+    await db.update(collections)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(collections.id, id));
+
+    const [collection] = await db
+      .select()
+      .from(collections)
+      .where(eq(collections.id, id))
+      .limit(1);
 
     await invalidateTags([CacheTags.collections, CacheTags.collection(id)]);
     revalidatePath('/');
 
-    return NextResponse.json({
-      collection: {
-        ...collection,
-        createdAt: collection.createdAt.toISOString(),
-        updatedAt: collection.updatedAt.toISOString(),
-      },
-    });
+    return NextResponse.json({ collection: serializeCollection(collection) });
   } catch (err: any) {
-    if (err?.code === 'P2025') return NextResponse.json({ error: 'Collection not found' }, { status: 404 });
-    if (err?.code === 'P2002') return NextResponse.json({ error: 'Name or slug already in use' }, { status: 409 });
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return NextResponse.json({ error: 'Name or slug already in use' }, { status: 409 });
+    }
     if (process.env.NODE_ENV !== 'production') console.error('[PATCH /api/collections]', err);
     return NextResponse.json({ error: 'Failed to update collection' }, { status: 500 });
   }
 }
-
-// ── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -174,16 +191,20 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'Collection ID required' }, { status: 400 });
 
-    // Wrap count + delete/update in a transaction to prevent a race where a new
-    // product is linked to this collection between the count read and the hard-delete.
     let message: string;
-    await db.$transaction(async (tx) => {
-      const totalProductCount = await tx.product.count({ where: { collectionId: id } });
+    await db.transaction(async (tx) => {
+      const [{ totalProductCount }] = await tx
+        .select({ totalProductCount: count() })
+        .from(products)
+        .where(eq(products.collectionId, id));
+
       if (totalProductCount > 0) {
-        await tx.collection.update({ where: { id }, data: { isActive: false, updatedAt: new Date() } });
+        await tx.update(collections)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(collections.id, id));
         message = 'Collection deactivated (has linked products, cannot be hard-deleted)';
       } else {
-        await tx.collection.delete({ where: { id } });
+        await tx.delete(collections).where(eq(collections.id, id));
         message = 'Collection deleted successfully';
       }
     });
@@ -193,7 +214,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: message! });
   } catch (err: any) {
-    if (err?.code === 'P2025') return NextResponse.json({ error: 'Collection not found' }, { status: 404 });
     if (process.env.NODE_ENV !== 'production') console.error('[DELETE /api/collections]', err);
     return NextResponse.json({ error: 'Failed to delete collection' }, { status: 500 });
   }

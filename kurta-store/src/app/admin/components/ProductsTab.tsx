@@ -9,6 +9,7 @@ import ConfirmInline from './shared/ConfirmInline';
 import FormField, { inputStyle, selectStyle } from './shared/FormField';
 import LoadingSkeleton from './shared/LoadingSkeleton';
 import StatusBadge from './shared/StatusBadge';
+import ImageUploader from './shared/ImageUploader';
 
 interface ProductsTabProps {
   role: string;
@@ -26,7 +27,7 @@ interface ProductForm {
   isActive: boolean;
   isFeatured: boolean;
   sizes: Record<SizeLabel, string>;
-  images: string; // newline-separated URLs
+  images: string[];
 }
 
 const emptyForm: ProductForm = {
@@ -34,7 +35,7 @@ const emptyForm: ProductForm = {
   priceINR: '', compareAtPriceINR: '',
   collectionId: '', isActive: true, isFeatured: false,
   sizes: { XS: '0', S: '0', M: '0', L: '0', XL: '0', XXL: '0' },
-  images: '',
+  images: [],
 };
 
 function toSlug(s: string) {
@@ -119,7 +120,7 @@ export default function ProductsTab({ role }: ProductsTabProps) {
       isActive: p.isActive,
       isFeatured: p.isFeatured,
       sizes,
-      images: (p.images || []).join('\n'),
+      images: p.images || [],
     });
     setSlugLocked(true);
     setFormError(null);
@@ -138,7 +139,7 @@ export default function ProductsTab({ role }: ProductsTabProps) {
     setSaving(true);
     try {
       const variants = SIZE_LABELS.map((s) => ({ size: s, stock: Number(form.sizes[s]) || 0 }));
-      const images = form.images.split('\n').map((u) => u.trim()).filter(Boolean);
+      const images = form.images;
       const payload: Record<string, unknown> = {
         title: form.title.trim(),
         slug: form.slug.trim() || toSlug(form.title.trim()),
@@ -409,13 +410,11 @@ export default function ProductsTab({ role }: ProductsTabProps) {
             </div>
           </FormField>
 
-          {/* Image URLs */}
-          <FormField label="Image URLs" hint="One URL per line">
-            <textarea
-              style={{ ...inputStyle, minHeight: '80px', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '11px' } as React.CSSProperties}
-              value={form.images}
-              onChange={(e) => setForm((f) => ({ ...f, images: e.target.value }))}
-              placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
+          {/* Images */}
+          <FormField label="Images" hint="Upload up to 8. Drag to reorder. First image is the cover.">
+            <ImageUploader
+              images={form.images}
+              onChange={(urls) => setForm((f) => ({ ...f, images: urls }))}
             />
           </FormField>
 

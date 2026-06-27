@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/db';
+import { db } from '@/db/index';
+import { designConfigs } from '@/db/schema';
 import { redis } from '@/lib/redis';
 import { auth } from '@/lib/auth';
+import { eq } from 'drizzle-orm';
 import type { DesignConfig } from '@/types/schema';
 
 const CACHE_KEY = 'design_config';
 
 const HeroBannerSchema = z.object({
-  url: z.string().url(),
-  altText: z.string().min(1),
+  url:      z.string().url(),
+  altText:  z.string().min(1),
   linkHref: z.string(),
 });
 
 const PatchDesignConfigSchema = z.object({
-  heroBanners: z.array(HeroBannerSchema).optional(),
+  heroBanners:     z.array(HeroBannerSchema).optional(),
   isLookbookActive: z.boolean().optional(),
-  activeTheme: z.enum(['pastel-pink', 'ivory-gold', 'midnight-rose', 'sage-green']).optional(),
+  activeTheme:     z.enum(['pastel-pink', 'ivory-gold', 'midnight-rose', 'sage-green']).optional(),
   promoBannerText: z.string().nullable().optional(),
 });
 
-function dbConfigToSchema(c: {
+function rowToSchema(c: {
   id: string;
   heroBanners: unknown;
   isLookbookActive: boolean;
@@ -30,70 +32,61 @@ function dbConfigToSchema(c: {
   updatedAt: Date;
 }): DesignConfig {
   return {
-    id: c.id,
-    heroBanners: c.heroBanners as DesignConfig['heroBanners'],
+    id:              c.id,
+    heroBanners:     c.heroBanners as DesignConfig['heroBanners'],
     isLookbookActive: c.isLookbookActive,
-    activeTheme: c.activeTheme,
+    activeTheme:     c.activeTheme,
     promoBannerText: c.promoBannerText ?? undefined,
-    updatedAt: c.updatedAt.toISOString(),
+    updatedAt:       c.updatedAt.toISOString(),
   };
 }
 
-// GET /api/config/design — returns current DesignConfig
 export async function GET() {
   try {
-    // Check Redis cache first
     const cached = await redis.get<DesignConfig>(CACHE_KEY).catch(() => null);
-    if (cached) {
-      return NextResponse.json(cached);
-    }
+    if (cached) return NextResponse.json(cached);
 
-    const config = await db.designConfig.findUnique({
-      where: { id: 'current_config' },
-      select: {
-        id: true,
-        heroBanners: true,
-        isLookbookActive: true,
-        activeTheme: true,
-        promoBannerText: true,
-        updatedAt: true,
-      },
-    });
+    const [config] = await db
+      .select({
+        id:              designConfigs.id,
+        heroBanners:     designConfigs.heroBanners,
+        isLookbookActive: designConfigs.isLookbookActive,
+        activeTheme:     designConfigs.activeTheme,
+        promoBannerText: designConfigs.promoBannerText,
+        updatedAt:       designConfigs.updatedAt,
+      })
+      .from(designConfigs)
+      .where(eq(designConfigs.id, 'current_config'))
+      .limit(1);
 
     if (!config) {
       return NextResponse.json({ error: 'Design config not found' }, { status: 404 });
     }
 
-    const result = dbConfigToSchema(config);
-
-    // 1-hour TTL as a safety net; admin PATCH calls redis.del to invalidate immediately
+    const result = rowToSchema(config);
     await redis.set(CACHE_KEY, result, { ex: 3600 }).catch(() => null);
 
     return NextResponse.json(result);
   } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[GET /api/config/design]', err);
-    }
+    if (process.env.NODE_ENV === 'development') console.error('[GET /api/config/design]', err);
     return NextResponse.json({ error: 'Failed to fetch design config' }, { status: 500 });
   }
 }
 
-// PATCH /api/config/design — admin update
 export async function PATCH(request: NextRequest) {
   try {
-    // Admin auth: support either Bearer ADMIN_SECRET_KEY OR NextAuth role session
-    const authHeader = request.headers.get('Authorization');
+    const authHeader    = request.headers.get('Authorization');
     const expectedToken = `Bearer ${process.env.ADMIN_SECRET_KEY}`;
-    let isAuthorized = !!(authHeader && authHeader === expectedToken);
+    let authorized      = !!(authHeader && authHeader === expectedToken);
 
-    if (!isAuthorized) {
+    if (!authorized) {
       const session = await auth();
       if (session?.user && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes((session.user as any).role)) {
-        isAuthorized = true;
+        authorized = true;
       }
     }
 
-    if (!isAuthorized) {
+    if (!authorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -103,36 +96,36 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (parsed.data.heroBanners !== undefined) updateData.heroBanners = parsed.data.heroBanners;
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (parsed.data.heroBanners !== undefined)     updateData.heroBanners     = parsed.data.heroBanners;
     if (parsed.data.isLookbookActive !== undefined) updateData.isLookbookActive = parsed.data.isLookbookActive;
-    if (parsed.data.activeTheme !== undefined) updateData.activeTheme = parsed.data.activeTheme;
+    if (parsed.data.activeTheme !== undefined)     updateData.activeTheme     = parsed.data.activeTheme;
     if (parsed.data.promoBannerText !== undefined) updateData.promoBannerText = parsed.data.promoBannerText;
 
-    const updated = await db.designConfig.update({
-      where: { id: 'current_config' },
-      data: updateData,
-      select: {
-        id: true,
-        heroBanners: true,
-        isLookbookActive: true,
-        activeTheme: true,
-        promoBannerText: true,
-        updatedAt: true,
-      },
-    });
+    await db
+      .update(designConfigs)
+      .set(updateData)
+      .where(eq(designConfigs.id, 'current_config'));
 
-    // Invalidate Redis cache
+    const [updated] = await db
+      .select({
+        id:              designConfigs.id,
+        heroBanners:     designConfigs.heroBanners,
+        isLookbookActive: designConfigs.isLookbookActive,
+        activeTheme:     designConfigs.activeTheme,
+        promoBannerText: designConfigs.promoBannerText,
+        updatedAt:       designConfigs.updatedAt,
+      })
+      .from(designConfigs)
+      .where(eq(designConfigs.id, 'current_config'))
+      .limit(1);
+
     await redis.del(CACHE_KEY).catch(() => null);
-
-    // Invalidate Next.js cache for storefront
     revalidatePath('/');
 
-    return NextResponse.json(dbConfigToSchema(updated));
+    return NextResponse.json(rowToSchema(updated));
   } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[PATCH /api/config/design]', err);
-    }
+    if (process.env.NODE_ENV === 'development') console.error('[PATCH /api/config/design]', err);
     return NextResponse.json({ error: 'Failed to update design config' }, { status: 500 });
   }
 }

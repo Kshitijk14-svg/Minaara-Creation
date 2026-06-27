@@ -110,6 +110,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.items]);
 
+  // Sync to server for abandon-cart recovery (logged-in users only)
+  useEffect(() => {
+    const handleUnload = () => {
+      if (state.items.length === 0) return;
+      // sendBeacon is fire-and-forget — safe on page unload
+      navigator.sendBeacon(
+        '/api/cart/sync',
+        new Blob([JSON.stringify({ items: state.items })], { type: 'application/json' })
+      );
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [state.items]);
+
   const addItem = useCallback((item: CartItem) => {
     dispatch({ type: 'ADD_ITEM', payload: item });
   }, []);

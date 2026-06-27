@@ -6,45 +6,79 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/db';
+import { db } from '@/db/index';
+import { products, collections, productSizeVariants, productImages } from '@/db/schema';
 import { isAuthorized } from '@/lib/api-auth';
 import {
-  cacheGet,
-  cacheSet,
-  invalidateTags,
-  CacheKeys,
-  CacheTags,
+  cacheGet, cacheSet, invalidateTags,
+  CacheKeys, CacheTags,
 } from '@/lib/cache';
+import { and, asc, eq, isNull } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 
-const SINGLE_PRODUCT_TTL = 1800; // 30 min
+const SINGLE_PRODUCT_TTL = 1800;
 
 const SizeVariantSchema = z.object({
-  size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
+  size:  z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
   stock: z.number().int().min(0),
 });
 
-const ImageSchema = z.object({
-  url: z.string().url(),
-  altText: z.string().optional(),
-  sortOrder: z.number().int().min(0).optional().default(0),
-});
-
 const UpdateProductSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  slug: z.string().min(1).max(255).regex(/^[a-z0-9-]+$/).optional(),
-  description: z.string().min(1).optional(),
-  priceINR: z.number().positive().optional(),
+  title:             z.string().min(1).max(255).optional(),
+  slug:              z.string().min(1).max(255).regex(/^[a-z0-9-]+$/).optional(),
+  description:       z.string().min(1).optional(),
+  priceINR:          z.number().positive().optional(),
   compareAtPriceINR: z.number().positive().nullable().optional(),
-  collectionId: z.string().uuid().optional(),
-  category: z.string().min(1).optional(),
-  isActive: z.boolean().optional(),
-  isFeatured: z.boolean().optional(),
-  variants: z.array(SizeVariantSchema).optional(),
-  sizes: z.record(z.string(), z.number()).optional(),
-  images: z.any().optional(),
+  collectionId:      z.string().uuid().optional(),
+  category:          z.string().min(1).optional(),
+  isActive:          z.boolean().optional(),
+  isFeatured:        z.boolean().optional(),
+  variants:          z.array(SizeVariantSchema).optional(),
+  sizes:             z.record(z.string(), z.number()).optional(),
+  images:            z.any().optional(),
 });
 
-// ── GET ──────────────────────────────────────────────────────────────────────
+function buildSizesMap(variants: Array<{ size: string; stock: number }>) {
+  const map: Record<string, number> = { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+  for (const v of variants) map[v.size] = v.stock;
+  return map;
+}
+
+async function fetchFullProduct(id: string) {
+  const [p] = await db
+    .select({
+      id: products.id, title: products.title, slug: products.slug,
+      description: products.description, priceINR: products.priceINR,
+      compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
+      isActive: products.isActive, isFeatured: products.isFeatured,
+      createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
+      collectionName: collections.name, collectionSlug: collections.slug,
+    })
+    .from(products)
+    .leftJoin(collections, eq(products.collectionId, collections.id))
+    .where(and(eq(products.id, id), isNull(products.deletedAt)))
+    .limit(1);
+
+  if (!p) return null;
+
+  const [pVariants, pImages] = await Promise.all([
+    db.select().from(productSizeVariants).where(eq(productSizeVariants.productId, id)).orderBy(asc(productSizeVariants.size)),
+    db.select().from(productImages).where(eq(productImages.productId, id)).orderBy(asc(productImages.sortOrder)),
+  ]);
+
+  return {
+    ...p,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+    deletedAt: p.deletedAt?.toISOString() ?? null,
+    category:  p.collectionName || '',
+    collection: { id: p.collectionId, name: p.collectionName, slug: p.collectionSlug },
+    sizes:            buildSizesMap(pVariants),
+    variants:         pVariants,
+    images:           pImages.map((img) => img.url),
+    normalizedImages: pImages,
+  };
+}
 
 export async function GET(
   _request: NextRequest,
@@ -53,57 +87,19 @@ export async function GET(
   try {
     const { id } = await params;
     const cacheKey = CacheKeys.products.single(id);
-    const cached = await cacheGet(cacheKey);
+    const cached   = await cacheGet(cacheKey);
     if (cached) return NextResponse.json({ product: cached });
 
-    const product = await db.product.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        collection: { select: { id: true, name: true, slug: true } },
-        variants: { orderBy: { size: 'asc' } },
-        images: { orderBy: { sortOrder: 'asc' } },
-      },
-    });
+    const product = await fetchFullProduct(id);
+    if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-    }
-
-    const sizesMap: Record<string, number> = {
-      XS: product.variants.find((v) => v.size === 'XS')?.stock ?? 0,
-      S: product.variants.find((v) => v.size === 'S')?.stock ?? 0,
-      M: product.variants.find((v) => v.size === 'M')?.stock ?? 0,
-      L: product.variants.find((v) => v.size === 'L')?.stock ?? 0,
-      XL: product.variants.find((v) => v.size === 'XL')?.stock ?? 0,
-      XXL: product.variants.find((v) => v.size === 'XXL')?.stock ?? 0,
-    };
-
-    const serialised = {
-      ...product,
-      createdAt: product.createdAt.toISOString(),
-      updatedAt: product.updatedAt.toISOString(),
-      deletedAt: product.deletedAt?.toISOString() ?? null,
-      category: product.collection?.name || '',
-      sizes: sizesMap,
-      images: product.images.map((img) => img.url),
-      normalizedImages: product.images,
-    };
-
-    await cacheSet(
-      cacheKey,
-      serialised,
-      [CacheTags.products, CacheTags.product(id)],
-      SINGLE_PRODUCT_TTL,
-    );
-
-    return NextResponse.json({ product: serialised });
+    await cacheSet(cacheKey, product, [CacheTags.products, CacheTags.product(id)], SINGLE_PRODUCT_TTL);
+    return NextResponse.json({ product });
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') console.error('[GET /api/products/[id]]', err);
     return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
   }
 }
-
-// ── PATCH ────────────────────────────────────────────────────────────────────
 
 export async function PATCH(
   request: NextRequest,
@@ -115,7 +111,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body: unknown = await request.json();
+    const body   = await request.json();
     const parsed = UpdateProductSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
@@ -123,127 +119,93 @@ export async function PATCH(
 
     const { variants, sizes, images, category, collectionId, ...scalarData } = parsed.data;
 
-    // Determine collectionId
+    // Resolve collection
     let finalCollectionId = collectionId;
     if (!finalCollectionId && category) {
       const slug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const collection = await db.collection.upsert({
-        where: { slug },
-        update: {},
-        create: {
-          name: category,
-          slug,
-          isActive: true,
-          sortOrder: 0,
-        },
-      });
-      finalCollectionId = collection.id;
+      await db.insert(collections)
+        .values({ id: randomUUID(), name: category, slug, isActive: true, sortOrder: 0 })
+        .onDuplicateKeyUpdate({ set: { name: category } });
+      const [col] = await db.select({ id: collections.id }).from(collections).where(eq(collections.slug, slug)).limit(1);
+      finalCollectionId = col?.id;
     }
 
-    // Determine variants
-    let finalVariants: { size: 'XS'|'S'|'M'|'L'|'XL'|'XXL', stock: number }[] | undefined = undefined;
+    type SizeKey = 'XS'|'S'|'M'|'L'|'XL'|'XXL';
+    let finalVariants: { size: SizeKey; stock: number }[] | undefined;
     if (variants && variants.length > 0) {
-      finalVariants = variants;
+      finalVariants = variants as { size: SizeKey; stock: number }[];
     } else if (sizes) {
-      finalVariants = Object.entries(sizes).map(([sz, stock]) => ({
-        size: sz as any,
-        stock,
-      }));
+      finalVariants = Object.entries(sizes).map(([sz, stock]) => ({ size: sz as SizeKey, stock }));
     }
 
-    // Determine images
-    let finalImages: { url: string; altText?: string; sortOrder: number }[] | undefined = undefined;
-    if (images) {
-      if (Array.isArray(images)) {
-        finalImages = images.map((img: any, i: number) => {
-          if (typeof img === 'string') {
-            return { url: img, sortOrder: i };
-          }
-          return { url: img.url, altText: img.altText, sortOrder: img.sortOrder ?? i };
-        });
-      }
+    let finalImages: { url: string; altText?: string; sortOrder: number }[] | undefined;
+    if (images && Array.isArray(images)) {
+      finalImages = images.map((img: any, i: number) =>
+        typeof img === 'string'
+          ? { url: img, sortOrder: i }
+          : { url: img.url, altText: img.altText, sortOrder: img.sortOrder ?? i }
+      );
     }
 
-    const updated = await db.$transaction(async (tx) => {
-      // Check exists
-      const existing = await tx.product.findFirst({ where: { id, deletedAt: null } });
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: products.id, slug: products.slug })
+        .from(products)
+        .where(and(eq(products.id, id), isNull(products.deletedAt)))
+        .limit(1);
+
       if (!existing) throw new Error('NOT_FOUND');
 
-      // If new slug, check uniqueness
       if (scalarData.slug && scalarData.slug !== existing.slug) {
-        const conflict = await tx.product.findFirst({ where: { slug: scalarData.slug, id: { not: id } } });
-        if (conflict) throw new Error('SLUG_CONFLICT');
+        const [conflict] = await tx
+          .select({ id: products.id })
+          .from(products)
+          .where(and(eq(products.slug, scalarData.slug)))
+          .limit(1);
+        if (conflict && conflict.id !== id) throw new Error('SLUG_CONFLICT');
       }
 
-      // Replace variants atomically if provided
       if (finalVariants !== undefined) {
-        await tx.productSizeVariant.deleteMany({ where: { productId: id } });
-        await tx.productSizeVariant.createMany({
-          data: finalVariants.map((v) => ({ productId: id, size: v.size, stock: v.stock })),
-        });
+        await tx.delete(productSizeVariants).where(eq(productSizeVariants.productId, id));
+        if (finalVariants.length > 0) {
+          await tx.insert(productSizeVariants).values(
+            finalVariants.map((v) => ({ id: randomUUID(), productId: id, size: v.size, stock: v.stock }))
+          );
+        }
       }
 
-      // Replace images atomically if provided
       if (finalImages !== undefined) {
-        await tx.productImage.deleteMany({ where: { productId: id } });
-        await tx.productImage.createMany({
-          data: finalImages.map((img) => ({
-            productId: id,
-            url: img.url,
-            altText: img.altText ?? null,
-            sortOrder: img.sortOrder,
-          })),
-        });
+        await tx.delete(productImages).where(eq(productImages.productId, id));
+        if (finalImages.length > 0) {
+          await tx.insert(productImages).values(
+            finalImages.map((img) => ({
+              id: randomUUID(), productId: id,
+              url: img.url, altText: img.altText ?? null, sortOrder: img.sortOrder,
+            }))
+          );
+        }
       }
 
-      return tx.product.update({
-        where: { id },
-        data: {
-          ...scalarData,
-          ...(finalCollectionId ? { collectionId: finalCollectionId } : {}),
-          updatedAt: new Date(),
-        },
-        include: {
-          collection: { select: { id: true, name: true, slug: true } },
-          variants: { orderBy: { size: 'asc' } },
-          images: { orderBy: { sortOrder: 'asc' } },
-        },
-      });
+      await tx.update(products).set({
+        ...scalarData,
+        ...(finalCollectionId ? { collectionId: finalCollectionId } : {}),
+        updatedAt: new Date(),
+      }).where(eq(products.id, id));
     });
+
+    const product = await fetchFullProduct(id);
 
     await invalidateTags([CacheTags.products, CacheTags.product(id)]);
     revalidatePath('/');
 
-    const mappedSizes: Record<string, number> = {
-      XS: updated.variants.find((v) => v.size === 'XS')?.stock ?? 0,
-      S: updated.variants.find((v) => v.size === 'S')?.stock ?? 0,
-      M: updated.variants.find((v) => v.size === 'M')?.stock ?? 0,
-      L: updated.variants.find((v) => v.size === 'L')?.stock ?? 0,
-      XL: updated.variants.find((v) => v.size === 'XL')?.stock ?? 0,
-      XXL: updated.variants.find((v) => v.size === 'XXL')?.stock ?? 0,
-    };
-
-    return NextResponse.json({
-      product: {
-        ...updated,
-        createdAt: updated.createdAt.toISOString(),
-        updatedAt: updated.updatedAt.toISOString(),
-        deletedAt: updated.deletedAt?.toISOString() ?? null,
-        category: updated.collection?.name || '',
-        sizes: mappedSizes,
-        images: updated.images.map((img) => img.url),
-        normalizedImages: updated.images,
-      },
-    });
+    return NextResponse.json({ product });
   } catch (err: any) {
-    if (err?.message === 'NOT_FOUND') return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    if (err?.message === 'NOT_FOUND')     return NextResponse.json({ error: 'Product not found' },   { status: 404 });
     if (err?.message === 'SLUG_CONFLICT') return NextResponse.json({ error: 'Slug already in use' }, { status: 409 });
     if (process.env.NODE_ENV !== 'production') console.error('[PATCH /api/products/[id]]', err);
     return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
   }
 }
-
-// ── DELETE (soft) ─────────────────────────────────────────────────────────────
 
 export async function DELETE(
   request: NextRequest,
@@ -256,16 +218,19 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const existing = await db.product.findFirst({ where: { id, deletedAt: null } });
+    const [existing] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.id, id), isNull(products.deletedAt)))
+      .limit(1);
+
     if (!existing) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Soft delete — preserves order history references
-    await db.product.update({
-      where: { id },
-      data: { deletedAt: new Date(), isActive: false },
-    });
+    await db.update(products)
+      .set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() })
+      .where(eq(products.id, id));
 
     await invalidateTags([CacheTags.products, CacheTags.product(id)]);
     revalidatePath('/');

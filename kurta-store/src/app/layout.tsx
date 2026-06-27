@@ -40,15 +40,20 @@ async function getActiveTheme(): Promise<string> {
   };
 
   try {
-    const { db } = await import('@/lib/db');
-    const config = await withTimeout(
-      db.designConfig.findFirst({ where: { id: 'current_config' }, select: { activeTheme: true } }),
+    const { db } = await import('@/db/index');
+    const { designConfigs } = await import('@/db/schema');
+    const { eq } = await import('drizzle-orm');
+    const [config] = await withTimeout(
+      db.select({ activeTheme: designConfigs.activeTheme })
+        .from(designConfigs)
+        .where(eq(designConfigs.id, 'current_config'))
+        .limit(1),
     );
     if (config?.activeTheme) {
       theme = config.activeTheme;
     }
   } catch (e) {
-    console.warn('Prisma error in layout (falling back to default):', (e as Error).message);
+    console.warn('DB error in layout (falling back to default):', (e as Error).message);
   }
 
   return theme;

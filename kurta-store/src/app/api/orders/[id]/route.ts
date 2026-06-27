@@ -5,21 +5,23 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { db } from '@/lib/db';
+import { db } from '@/db/index';
+import {
+  orders, orderItems, shippingAddresses,
+  productSizeVariants, coupons, couponUsages,
+} from '@/db/schema';
 import { isAuthorized, getSession } from '@/lib/api-auth';
 import {
-  cacheGet,
-  cacheSet,
-  invalidateTags,
-  CacheKeys,
-  CacheTags,
+  cacheGet, cacheSet, invalidateTags,
+  CacheKeys, CacheTags,
 } from '@/lib/cache';
+import { and, eq, sql } from 'drizzle-orm';
 
-const ORDER_TTL = 300; // 5 min
+const ORDER_TTL = 300;
 
 const UpdateOrderSchema = z.object({
-  status:        z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED']).optional(),
-  paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED']).optional(),
+  status:           z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED']).optional(),
+  paymentStatus:    z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED']).optional(),
   paymentGatewayId: z.string().optional(),
   paymentMethod:    z.string().optional(),
   notes:            z.string().optional(),
@@ -27,22 +29,11 @@ const UpdateOrderSchema = z.object({
   message: 'At least one field must be provided',
 });
 
-const ORDER_INCLUDE = {
-  items:           true,
-  shippingAddress: true,
-  couponUsage: {
-    select: {
-      coupon: { select: { code: true, discountType: true, discountValue: true } },
-    },
-  },
-  user:   { select: { id: true, email: true, name: true } },
-} as const;
-
 function serializeOrder(o: any) {
   const { couponUsage, ...rest } = o;
   return {
     ...rest,
-    coupon: couponUsage?.coupon ?? null,
+    coupon:      couponUsage?.coupon ?? null,
     createdAt:   o.createdAt instanceof Date ? o.createdAt.toISOString() : o.createdAt,
     updatedAt:   o.updatedAt instanceof Date ? o.updatedAt.toISOString() : o.updatedAt,
     cancelledAt: o.cancelledAt ? (o.cancelledAt instanceof Date ? o.cancelledAt.toISOString() : o.cancelledAt) : null,
@@ -50,7 +41,35 @@ function serializeOrder(o: any) {
   };
 }
 
-// ── GET ──────────────────────────────────────────────────────────────────────
+async function fetchOrderWithRelations(id: string) {
+  const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+  if (!order) return null;
+
+  const [items, [address], [couponRow]] = await Promise.all([
+    db.select().from(orderItems).where(eq(orderItems.orderId, id)),
+    db.select().from(shippingAddresses).where(eq(shippingAddresses.orderId, id)).limit(1),
+    db.select({
+      id:            couponUsages.id,
+      couponId:      couponUsages.couponId,
+      code:          coupons.code,
+      discountType:  coupons.discountType,
+      discountValue: coupons.discountValue,
+    })
+      .from(couponUsages)
+      .leftJoin(coupons, eq(couponUsages.couponId, coupons.id))
+      .where(eq(couponUsages.orderId, id))
+      .limit(1),
+  ]);
+
+  return {
+    ...order,
+    items,
+    shippingAddress: address ?? null,
+    couponUsage:     couponRow
+      ? { id: couponRow.id, couponId: couponRow.couponId, coupon: { code: couponRow.code, discountType: couponRow.discountType, discountValue: couponRow.discountValue } }
+      : null,
+  };
+}
 
 export async function GET(
   request: NextRequest,
@@ -69,21 +88,15 @@ export async function GET(
     const cacheKey = CacheKeys.orders.single(id);
     const cached   = await cacheGet(cacheKey);
     if (cached) {
-      // For non-admin users, ensure cached order belongs to them
       if (!admin && (cached as any).userId !== userId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       return NextResponse.json({ order: cached });
     }
 
-    const order = await db.order.findUnique({
-      where:   { id },
-      include: ORDER_INCLUDE,
-    });
-
+    const order = await fetchOrderWithRelations(id);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
-    // Ownership check for non-admins
     if (!admin && order.userId !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -98,8 +111,6 @@ export async function GET(
   }
 }
 
-// ── PATCH ─────────────────────────────────────────────────────────────────────
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -110,38 +121,33 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body: unknown = await request.json();
+    const body   = await request.json();
     const parsed = UpdateOrderSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
     }
 
     const updateData: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+    if (parsed.data.status === 'DELIVERED') updateData.deliveredAt = new Date();
+    if (parsed.data.status === 'CANCELLED') updateData.cancelledAt = new Date();
 
-    // Set timestamp fields automatically
-    if (parsed.data.status === 'DELIVERED')  updateData.deliveredAt = new Date();
-    if (parsed.data.status === 'CANCELLED')  updateData.cancelledAt = new Date();
+    const [existing] = await db.select({ id: orders.id, userId: orders.userId }).from(orders).where(eq(orders.id, id)).limit(1);
+    if (!existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
-    const updated = await db.order.update({
-      where:   { id },
-      data:    updateData,
-      include: ORDER_INCLUDE,
-    });
+    await db.update(orders).set(updateData).where(eq(orders.id, id));
 
-    // Invalidate caches
+    const order = await fetchOrderWithRelations(id);
+
     const tags = [CacheTags.orders, CacheTags.orderSingle(id)];
-    if (updated.userId) tags.push(CacheTags.ordersByUser(updated.userId));
+    if (existing.userId) tags.push(CacheTags.ordersByUser(existing.userId));
     await invalidateTags(tags);
 
-    return NextResponse.json({ order: serializeOrder(updated) });
-  } catch (err: any) {
-    if (err?.code === 'P2025') return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    return NextResponse.json({ order: serializeOrder(order!) });
+  } catch (err) {
     if (process.env.NODE_ENV !== 'production') console.error('[PATCH /api/orders/[id]]', err);
     return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
   }
 }
-
-// ── DELETE (cancel) ───────────────────────────────────────────────────────────
 
 export async function DELETE(
   request: NextRequest,
@@ -154,41 +160,33 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const order = await db.order.findUnique({
-      where: { id },
-      include: { couponUsage: true },
-    });
+    const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
     if (order.status === 'DELIVERED') {
       return NextResponse.json({ error: 'Cannot cancel a delivered order' }, { status: 409 });
     }
 
-    // Cancel order — restore stock inside a transaction
-    await db.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id },
-        data:  { status: 'CANCELLED', cancelledAt: new Date(), updatedAt: new Date() },
-      });
+    await db.transaction(async (tx) => {
+      await tx.update(orders)
+        .set({ status: 'CANCELLED', cancelledAt: new Date(), updatedAt: new Date() })
+        .where(eq(orders.id, id));
 
-      // Restore stock for each item
-      const items = await tx.orderItem.findMany({ where: { orderId: id } });
+      const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, id));
       for (const item of items) {
         if (item.variantId) {
-          await tx.productSizeVariant.update({
-            where: { id: item.variantId },
-            data:  { stock: { increment: item.quantity } },
-          });
+          await tx.update(productSizeVariants)
+            .set({ stock: sql`stock + ${item.quantity}`, updatedAt: new Date() })
+            .where(eq(productSizeVariants.id, item.variantId));
         }
       }
 
-      // Free up the coupon usage slot
-      if (order.couponUsage) {
-        await tx.couponUsage.delete({ where: { id: order.couponUsage.id } });
-        await tx.coupon.update({
-          where: { id: order.couponUsage.couponId },
-          data:  { usedCount: { decrement: 1 } },
-        });
+      const [couponRow] = await tx.select().from(couponUsages).where(eq(couponUsages.orderId, id)).limit(1);
+      if (couponRow) {
+        await tx.delete(couponUsages).where(eq(couponUsages.id, couponRow.id));
+        await tx.update(coupons)
+          .set({ usedCount: sql`usedCount - 1`, updatedAt: new Date() })
+          .where(eq(coupons.id, couponRow.couponId));
       }
     });
 

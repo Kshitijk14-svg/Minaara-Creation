@@ -1,6 +1,9 @@
-import NextAuth from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { db as prisma } from "@/lib/db"
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { db } from "@/db/index";
+import { users, otps } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -8,49 +11,58 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "OTP",
       credentials: {
         email: { label: "Email", type: "email" },
-        otp: { label: "OTP", type: "text" },
-        name: { label: "Name", type: "text" },
+        otp:   { label: "OTP", type: "text" },
+        name:  { label: "Name", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.otp) return null;
 
         const email = (credentials.email as string).trim().toLowerCase();
-        const otp = (credentials.otp as string).trim();
-        const name = credentials.name as string | undefined;
+        const otp   = (credentials.otp as string).trim();
+        const name  = credentials.name as string | undefined;
 
-        // Find the most recent OTP record for this email + code combo
-        const otpRecord = await prisma.otp.findFirst({
-          where: { email, code: otp },
-          orderBy: { createdAt: 'desc' }
-        });
+        // Find the most recent OTP for this email + code
+        const [otpRecord] = await db
+          .select()
+          .from(otps)
+          .where(and(eq(otps.email, email), eq(otps.code, otp)))
+          .orderBy(desc(otps.createdAt))
+          .limit(1);
 
-        if (!otpRecord) {
-          // Return null — NextAuth will surface "CredentialsSignin", handled on frontend
-          return null;
-        }
+        if (!otpRecord) return null;
 
         if (otpRecord.expiresAt < new Date()) {
-          // Delete expired record to keep DB clean, then reject
-          await prisma.otp.delete({ where: { id: otpRecord.id } });
+          await db.delete(otps).where(eq(otps.id, otpRecord.id));
           return null;
         }
 
-        // upsert is idempotent: concurrent logins for the same new email won't race
-        // on user creation (MySQL translates upsert to INSERT ... ON DUPLICATE KEY UPDATE)
-        const user = await prisma.user.upsert({
-          where: { email },
-          update: {},
-          create: { email, name: name?.trim() || null, role: 'CUSTOMER' },
-        });
+        // Upsert user: insert if not exists, no-op on duplicate
+        await db
+          .insert(users)
+          .values({
+            id:    randomUUID(),
+            email,
+            name:  name?.trim() || null,
+            role:  'CUSTOMER',
+          })
+          .onDuplicateKeyUpdate({ set: { email } }); // no-op update — keeps existing data
 
-        await prisma.otp.delete({ where: { id: otpRecord.id } });
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        await db.delete(otps).where(eq(otps.id, otpRecord.id));
+
+        if (!user) return null;
 
         return {
-          id: user.id,
+          id:   user.id,
           email: user.email,
-          name: user.name,
+          name:  user.name,
           // @ts-ignore — role is not on default NextAuth User type
-          role: user.role,
+          role:  user.role,
         };
       }
     })
@@ -77,5 +89,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: '/login',
   }
-})
-
+});

@@ -66,7 +66,7 @@ export function LookbookHotspot({ data }: LookbookHotspotProps) {
                 Quick Add
               </button>
               <Link 
-                href={`/product/${data.product.id}`}
+                href={`/product/${data.product.slug}`}
                 className="w-full text-center text-xs py-1.5 bg-black/5 rounded-md hover:bg-black/10 transition-colors font-medium"
                 style={{ color: 'var(--color-brand-charcoal)', fontFamily: 'var(--font-body)' }}
               >

@@ -82,6 +82,8 @@ export default function HomeClient({
 
   const [activeCategory, setActiveCategory] = useState<Category>('All');
   const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [newsletterEmail, setNewsletterEmail]   = useState('');
+  const [newsletterStatus, setNewsletterStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { addItem, items } = useCart();
   const { currency, convertPrice } = useCurrency();
 
@@ -648,18 +650,42 @@ export default function HomeClient({
               <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.22em', color: '#C4AC70', marginBottom: '16px' }}>✦ Inner Circle</p>
               <h2 style={{ fontSize: 'clamp(1.8rem,2.5vw,2.5rem)', fontWeight: 300, color: '#32518C', margin: '0 0 16px' }}>Join the Inner Circle</h2>
               <p style={{ fontSize: '14px', lineHeight: 1.75, color: 'rgba(26,26,26,0.55)', maxWidth: '420px', margin: '0 auto 32px' }}>Early access to new collections, exclusive artisan insights and private viewing events — curated for you.</p>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <input
-                  type="email"
-                  placeholder="YOUR EMAIL ADDRESS"
-                  style={{ padding: '14px 24px', fontSize: '11px', letterSpacing: '0.12em', backgroundColor: 'rgba(244,236,225,0.6)', border: '1px solid rgba(196,172,112,0.4)', borderRadius: '4px', outline: 'none', color: '#1A1A1A', width: '300px' }}
-                  id="newsletter-email"
-                />
-                <button
-                  style={{ padding: '14px 32px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', backgroundColor: '#32518C', color: '#C4AC70', border: '1px solid rgba(196,172,112,0.35)', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
-                  id="newsletter-subscribe"
-                >Subscribe</button>
-              </div>
+              {newsletterStatus === 'success' ? (
+                <p style={{ fontSize: '14px', color: '#32518C', fontWeight: 500 }}>✓ You're on the list. Welcome to the circle.</p>
+              ) : (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!newsletterEmail.trim()) return;
+                    setNewsletterStatus('loading');
+                    try {
+                      const res = await fetch('/api/newsletter/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: newsletterEmail }) });
+                      setNewsletterStatus(res.ok ? 'success' : 'error');
+                    } catch { setNewsletterStatus('error'); }
+                  }}
+                  style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}
+                >
+                  <input
+                    type="email"
+                    required
+                    value={newsletterEmail}
+                    onChange={(e) => setNewsletterEmail(e.target.value)}
+                    placeholder="YOUR EMAIL ADDRESS"
+                    disabled={newsletterStatus === 'loading'}
+                    style={{ padding: '14px 24px', fontSize: '11px', letterSpacing: '0.12em', backgroundColor: 'rgba(244,236,225,0.6)', border: '1px solid rgba(196,172,112,0.4)', borderRadius: '4px', outline: 'none', color: '#1A1A1A', width: '300px' }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={newsletterStatus === 'loading'}
+                    style={{ padding: '14px 32px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', backgroundColor: '#32518C', color: '#C4AC70', border: '1px solid rgba(196,172,112,0.35)', borderRadius: '4px', cursor: newsletterStatus === 'loading' ? 'wait' : 'pointer', fontWeight: 600, opacity: newsletterStatus === 'loading' ? 0.7 : 1 }}
+                  >
+                    {newsletterStatus === 'loading' ? '…' : 'Subscribe'}
+                  </button>
+                  {newsletterStatus === 'error' && (
+                    <p style={{ width: '100%', fontSize: '12px', color: '#C0392B', margin: 0 }}>Something went wrong. Please try again.</p>
+                  )}
+                </form>
+              )}
             </motion.div>
           </div>
         </section>
@@ -755,7 +781,15 @@ function ProductCard({ product, fmt, onAdd }: PCProps) {
           </div>
           <div style={{ padding: '14px 16px 16px', backgroundColor: 'transparent' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 400, color: '#1A1A1A', margin: '0 0 4px', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.title}</h3>
-            <p style={{ fontSize: '0.82rem', color: '#A68026', margin: 0, fontWeight: 500 }}>{fmt(product.priceINR)}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <p style={{ fontSize: '0.82rem', color: '#A68026', margin: 0, fontWeight: 500 }}>{fmt(product.priceINR)}</p>
+              {product.compareAtPriceINR && product.compareAtPriceINR > product.priceINR && (
+                <>
+                  <p style={{ fontSize: '0.75rem', color: '#999', margin: 0, textDecoration: 'line-through' }}>{fmt(product.compareAtPriceINR)}</p>
+                  <span style={{ fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '2px 6px', borderRadius: '3px', backgroundColor: 'rgba(192,57,43,0.1)', color: '#C0392B', border: '1px solid rgba(192,57,43,0.2)' }}>Sale</span>
+                </>
+              )}
+            </div>
           </div>
         </Link>
       </div>

@@ -2,17 +2,32 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import OverviewTab from './components/OverviewTab';
-import ProductsTab from './components/ProductsTab';
-import CollectionsTab from './components/CollectionsTab';
-import CouponsTab from './components/CouponsTab';
-import OrdersTab from './components/OrdersTab';
 
-type AdminTab = 'overview' | 'products' | 'collections' | 'coupons' | 'orders';
+// Lazy-loaded tabs — chunks download immediately (all tabs stay mounted via
+// display:none) but don't block the first render of OverviewTab.
+const ProductsTab    = dynamic(() => import('./components/ProductsTab'));
+const CollectionsTab = dynamic(() => import('./components/CollectionsTab'));
+const CouponsTab     = dynamic(() => import('./components/CouponsTab'));
+const OrdersTab      = dynamic(() => import('./components/OrdersTab'));
+const BlogTab        = dynamic(() => import('./components/BlogTab'));
+const DesignTab      = dynamic(() => import('./components/DesignTab'));
+const UsersTab       = dynamic(() => import('./components/UsersTab'));
+
+type AdminTab = 'overview' | 'products' | 'collections' | 'coupons' | 'orders' | 'blog' | 'design' | 'users';
 
 interface AdminClientProps {
   session: any;
+  initialStats?: {
+    totalProducts: number;
+    activeCollections: number;
+    totalCollections: number;
+    activeCoupons: number;
+    ordersToday: number;
+    revenueToday: number;
+  } | null;
 }
 
 const GridIcon = () => (
@@ -51,15 +66,37 @@ function getInitials(name?: string | null, email?: string | null) {
   return email ? email[0].toUpperCase() : 'A';
 }
 
+const PenIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+  </svg>
+);
+const PaletteIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+  </svg>
+);
+const UsersIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+  </svg>
+);
+
 const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview',    label: 'Overview',    icon: <GridIcon /> },
   { id: 'products',    label: 'Products',    icon: <BoxIcon /> },
   { id: 'collections', label: 'Collections', icon: <FolderIcon /> },
   { id: 'coupons',     label: 'Coupons',     icon: <TagIcon /> },
   { id: 'orders',      label: 'Orders',      icon: <ShoppingBagIcon /> },
+  { id: 'blog',        label: 'Journal',     icon: <PenIcon /> },
+  { id: 'design',      label: 'Design',      icon: <PaletteIcon /> },
+  { id: 'users',       label: 'Users',       icon: <UsersIcon /> },
 ];
 
-export default function AdminClient({ session }: AdminClientProps) {
+export default function AdminClient({ session, initialStats }: AdminClientProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
 
   const user = session?.user;
@@ -116,7 +153,6 @@ export default function AdminClient({ session }: AdminClientProps) {
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '24px', flexWrap: 'wrap', paddingBottom: '32px' }}>
             {/* Avatar */}
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               style={{
@@ -134,7 +170,6 @@ export default function AdminClient({ session }: AdminClientProps) {
 
             <div style={{ flex: 1, minWidth: '200px' }}>
               <motion.p
-                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
                 style={{
@@ -146,7 +181,6 @@ export default function AdminClient({ session }: AdminClientProps) {
                 {role?.replace(/_/g, ' ')}
               </motion.p>
               <motion.h1
-                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 style={{
@@ -157,7 +191,6 @@ export default function AdminClient({ session }: AdminClientProps) {
                 Admin Dashboard
               </motion.h1>
               <motion.p
-                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
                 style={{
@@ -200,35 +233,32 @@ export default function AdminClient({ session }: AdminClientProps) {
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
-        <AnimatePresence mode="wait">
-          {activeTab === 'overview' && (
-            <motion.div key="overview" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-              <OverviewTab onTabChange={setActiveTab} />
-            </motion.div>
-          )}
-          {activeTab === 'products' && (
-            <motion.div key="products" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-              <ProductsTab role={role} />
-            </motion.div>
-          )}
-          {activeTab === 'collections' && (
-            <motion.div key="collections" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-              <CollectionsTab role={role} />
-            </motion.div>
-          )}
-          {activeTab === 'coupons' && (
-            <motion.div key="coupons" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-              <CouponsTab />
-            </motion.div>
-          )}
-          {activeTab === 'orders' && (
-            <motion.div key="orders" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-              <OrdersTab />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Tab Content — all tabs stay mounted to avoid re-fetching on switch */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px', position: 'relative' }}>
+        <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
+          <OverviewTab onTabChange={setActiveTab} initialStats={initialStats} />
+        </div>
+        <div style={{ display: activeTab === 'products' ? 'block' : 'none' }}>
+          <ProductsTab role={role} />
+        </div>
+        <div style={{ display: activeTab === 'collections' ? 'block' : 'none' }}>
+          <CollectionsTab role={role} />
+        </div>
+        <div style={{ display: activeTab === 'coupons' ? 'block' : 'none' }}>
+          <CouponsTab />
+        </div>
+        <div style={{ display: activeTab === 'orders' ? 'block' : 'none' }}>
+          <OrdersTab />
+        </div>
+        <div style={{ display: activeTab === 'blog' ? 'block' : 'none' }}>
+          <BlogTab />
+        </div>
+        <div style={{ display: activeTab === 'design' ? 'block' : 'none' }}>
+          <DesignTab />
+        </div>
+        <div style={{ display: activeTab === 'users' ? 'block' : 'none' }}>
+          <UsersTab callerRole={role as any ?? 'STAFF'} />
+        </div>
       </div>
 
       <style>{`

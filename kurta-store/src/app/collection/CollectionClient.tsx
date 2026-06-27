@@ -234,7 +234,7 @@ function CollectionProductCard({ product, fmt, onAdd }: CardProps) {
       }}
     >
       <div style={{ borderRadius: '12px', overflow: 'hidden', border: 'none' }}>
-        <Link href={`/product/${product.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+        <Link href={`/product/${product.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
 
           {/* Image */}
           <div style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', backgroundColor: '#EDE9DF' }}>
@@ -259,9 +259,17 @@ function CollectionProductCard({ product, fmt, onAdd }: CardProps) {
             <h3 style={{ fontSize: '0.92rem', fontWeight: 400, color: 'var(--color-brand-charcoal)', margin: '0 0 4px', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
               {product.title}
             </h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--color-brand-gold)', margin: 0, fontWeight: 500, fontFamily: 'var(--font-body)' }}>
-              {fmt(product.priceINR)}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <p style={{ fontSize: '0.82rem', color: 'var(--color-brand-gold)', margin: 0, fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+                {fmt(product.priceINR)}
+              </p>
+              {product.compareAtPriceINR && product.compareAtPriceINR > product.priceINR && (
+                <>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-brand-charcoal)', opacity: 0.4, margin: 0, textDecoration: 'line-through', fontFamily: 'var(--font-body)' }}>{fmt(product.compareAtPriceINR)}</p>
+                  <span style={{ fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '2px 6px', borderRadius: '3px', backgroundColor: 'rgba(192,57,43,0.1)', color: '#C0392B', border: '1px solid rgba(192,57,43,0.2)', fontFamily: 'var(--font-body)' }}>Sale</span>
+                </>
+              )}
+            </div>
           </div>
 
         </Link>

@@ -14,9 +14,13 @@ interface AdminModalProps {
 export default function AdminModal({ isOpen, onClose, title, width = '540px', children }: AdminModalProps) {
   useEffect(() => {
     if (!isOpen) return;
+    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKey);
+    };
   }, [isOpen, onClose]);
 
   return (

@@ -6,10 +6,6 @@ import LoadingSkeleton from './shared/LoadingSkeleton';
 
 type AdminTab = 'overview' | 'products' | 'collections' | 'coupons' | 'orders';
 
-interface OverviewTabProps {
-  onTabChange: (tab: AdminTab) => void;
-}
-
 interface Stats {
   totalProducts: number;
   activeCollections: number;
@@ -19,11 +15,19 @@ interface Stats {
   revenueToday: number;
 }
 
-export default function OverviewTab({ onTabChange }: OverviewTabProps) {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+interface OverviewTabProps {
+  onTabChange: (tab: AdminTab) => void;
+  initialStats?: Stats | null;
+}
+
+export default function OverviewTab({ onTabChange, initialStats }: OverviewTabProps) {
+  const [stats, setStats] = useState<Stats | null>(initialStats ?? null);
+  const [loading, setLoading] = useState(!initialStats);
 
   useEffect(() => {
+    // Skip client fetch when the server already provided stats
+    if (initialStats) return;
+
     async function fetchStats() {
       setLoading(true);
       try {
@@ -38,7 +42,7 @@ export default function OverviewTab({ onTabChange }: OverviewTabProps) {
       }
     }
     fetchStats();
-  }, []);
+  }, [initialStats]);
 
   const statCards = stats ? [
     { label: 'Total Products', value: stats.totalProducts.toString(), sub: 'across all collections', tab: 'products' as AdminTab },
