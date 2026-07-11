@@ -57,8 +57,13 @@ export interface Product {
   variants: ProductSizeVariant[];
   images: string[]; // Keep as string[] for legacy UI compatibility
   normalizedImages?: ProductImage[]; // For admin dashboard or raw db uses
+  reelVideoUrl?: string | null;
+  reelVideoPosterUrl?: string | null;
   isActive: boolean;
   isFeatured: boolean;
+  isBestseller: boolean;
+  isNewArrival: boolean;
+  newArrivalUntil?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -165,12 +170,85 @@ export interface HeroBanner {
   linkHref: string;
 }
 
+export interface HeroContent {
+  badgeText: string;
+  headline: string;
+  headlineEmphasis: string;
+  subheading: string;
+  imageUrl: string;
+  ctaPrimaryLabel: string;
+  ctaPrimaryHref: string;
+  ctaSecondaryLabel: string;
+  ctaSecondaryHref: string;
+}
+
+export interface UspItem {
+  icon: string;
+  title: string;
+  sub: string;
+}
+
+export interface AboutPanel {
+  num: string;
+  label: string;
+  heading: string;
+  body: string;
+  imageUrl: string;
+}
+
+export interface EditorialStory {
+  chapter: string;
+  title: string;
+  desc: string;
+  imageUrl: string;
+  href: string;
+}
+
+export interface StatItem {
+  value: number;
+  suffix: string;
+  label: string;
+}
+
+export interface FooterLink {
+  href: string;
+  label: string;
+}
+
+export interface FooterContent {
+  tagline: string;
+  links: FooterLink[];
+}
+
 export interface DesignConfig {
   id: string;
   heroBanners: HeroBanner[];
   isLookbookActive: boolean;
   activeTheme: string;
   promoBannerText?: string;
+  heroContent?: HeroContent;
+  uspItems?: UspItem[];
+  marqueeWords?: string[];
+  aboutPanels?: AboutPanel[];
+  editorialStories?: EditorialStory[];
+  stats?: StatItem[];
+  footerContent?: FooterContent;
+  updatedAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TESTIMONIALS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface Testimonial {
+  id: string;
+  name: string;
+  city?: string | null;
+  text: string;
+  rating: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -186,6 +264,20 @@ export interface CartItem {
   imageUrl: string;
   quantity: number;
   priceINR: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WISHLIST (client-side only, not persisted)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface WishlistItem {
+  productId: string;
+  slug: string;
+  title: string;
+  imageUrl: string;
+  priceINR: number;
+  compareAtPriceINR?: number;
+  addedAt: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -7,12 +7,27 @@ import {
   int,
   double,
   datetime,
-  json,
   uniqueIndex,
   index,
+  customType,
 } from 'drizzle-orm/mysql-core';
 import { relations } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+
+// mysql2 returns JSON columns as raw strings (and legacy longtext columns always
+// are); drizzle's built-in json() doesn't parse on read, so consumers got
+// stringified JSON. This variant parses on read and handles both cases.
+const parsedJson = <TData>(name: string) =>
+  customType<{ data: TData; driverData: string }>({
+    dataType: () => 'json',
+    toDriver: (value: TData) => JSON.stringify(value),
+    fromDriver: (value: unknown): TData => {
+      if (typeof value === 'string') {
+        try { return JSON.parse(value) as TData; } catch { /* malformed legacy row */ }
+      }
+      return value as TData;
+    },
+  })(name);
 
 // ── Tables ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +41,8 @@ export const users = mysqlTable('users', {
 }, (t) => [
   index('email_idx').on(t.email),
   index('role_idx').on(t.role),
+  // Admin user list sorts by createdAt (optionally filtered by role) — avoid filesort.
+  index('user_role_created_idx').on(t.role, t.createdAt),
 ]);
 
 export const otps = mysqlTable('otps', {
@@ -64,6 +81,12 @@ export const products = mysqlTable('products', {
   collectionId:      varchar('collectionId', { length: 36 }).notNull(),
   isActive:          boolean('isActive').default(true).notNull(),
   isFeatured:        boolean('isFeatured').default(false).notNull(),
+  isBestseller:      boolean('isBestseller').default(false).notNull(),
+  isNewArrival:      boolean('isNewArrival').default(false).notNull(),
+  newArrivalUntil:   datetime('newArrivalUntil'),
+  reelVideoUrl:       varchar('reelVideoUrl', { length: 500 }),
+  reelVideoPosterUrl: varchar('reelVideoPosterUrl', { length: 500 }),
+  reelVideoUpdatedAt: datetime('reelVideoUpdatedAt'),
   deletedAt:         datetime('deletedAt'),
   createdAt:         datetime('createdAt').notNull().$defaultFn(() => new Date()),
   updatedAt:         datetime('updatedAt').notNull().$defaultFn(() => new Date()),
@@ -73,6 +96,8 @@ export const products = mysqlTable('products', {
   index('prod_slug_idx').on(t.slug),
   index('prod_featured_idx').on(t.isFeatured, t.isActive),
   index('prod_deleted_idx').on(t.deletedAt),
+  index('prod_bestseller_idx').on(t.isBestseller, t.isActive),
+  index('prod_new_arrival_idx').on(t.isNewArrival, t.isActive),
 ]);
 
 export const productSizeVariants = mysqlTable('product_size_variants', {
@@ -85,6 +110,8 @@ export const productSizeVariants = mysqlTable('product_size_variants', {
 }, (t) => [
   uniqueIndex('variant_product_size_unique').on(t.productId, t.size),
   index('variant_product_idx').on(t.productId),
+  // Low-stock cron filters WHERE stock <= 3 across the whole variants table.
+  index('variant_stock_idx').on(t.stock),
 ]);
 
 export const productImages = mysqlTable('product_images', {
@@ -123,6 +150,9 @@ export const orders = mysqlTable('orders', {
   index('order_status_created_idx').on(t.status, t.createdAt),
   index('order_payment_idx').on(t.paymentStatus),
   index('order_created_idx').on(t.createdAt),
+  // Idempotency: a gateway payment id backs at most one order (NULLs allowed for
+  // orders without a captured payment).
+  uniqueIndex('order_gateway_unique').on(t.paymentGatewayId),
 ]);
 
 export const orderItems = mysqlTable('order_items', {
@@ -185,10 +215,21 @@ export const couponUsages = mysqlTable('coupon_usages', {
 
 export const designConfigs = mysqlTable('design_configs', {
   id:              varchar('id', { length: 50 }).primaryKey(),
-  heroBanners:     json('heroBanners').notNull().$type<Array<{ url: string; altText: string; linkHref: string }>>(),
+  heroBanners:     parsedJson<Array<{ url: string; altText: string; linkHref: string }>>('heroBanners').notNull(),
   isLookbookActive: boolean('isLookbookActive').default(true).notNull(),
   activeTheme:     varchar('activeTheme', { length: 50 }).default('pastel-pink').notNull(),
   promoBannerText: text('promoBannerText'),
+  heroContent:      parsedJson<{
+    badgeText: string; headline: string; headlineEmphasis: string; subheading: string;
+    imageUrl: string; ctaPrimaryLabel: string; ctaPrimaryHref: string;
+    ctaSecondaryLabel: string; ctaSecondaryHref: string;
+  }>('heroContent'),
+  uspItems:         parsedJson<Array<{ icon: string; title: string; sub: string }>>('uspItems'),
+  marqueeWords:     parsedJson<string[]>('marqueeWords'),
+  aboutPanels:      parsedJson<Array<{ num: string; label: string; heading: string; body: string; imageUrl: string }>>('aboutPanels'),
+  editorialStories: parsedJson<Array<{ chapter: string; title: string; desc: string; imageUrl: string; href: string }>>('editorialStories'),
+  stats:            parsedJson<Array<{ value: number; suffix: string; label: string }>>('stats'),
+  footerContent:    parsedJson<{ tagline: string; links: Array<{ href: string; label: string }> }>('footerContent'),
   updatedAt:       datetime('updatedAt').notNull().$defaultFn(() => new Date()),
 });
 
@@ -217,6 +258,20 @@ export const newsletterSubscribers = mysqlTable('newsletter_subscribers', {
   isActive:     boolean('isActive').default(true).notNull(),
   subscribedAt: datetime('subscribedAt').notNull().$defaultFn(() => new Date()),
 });
+
+export const testimonials = mysqlTable('testimonials', {
+  id:        varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+  name:      varchar('name', { length: 255 }).notNull(),
+  city:      varchar('city', { length: 100 }),
+  text:      text('text').notNull(),
+  rating:    int('rating').default(5).notNull(),
+  isActive:  boolean('isActive').default(true).notNull(),
+  sortOrder: int('sortOrder').default(0).notNull(),
+  createdAt: datetime('createdAt').notNull().$defaultFn(() => new Date()),
+  updatedAt: datetime('updatedAt').notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  index('testimonial_active_sort_idx').on(t.isActive, t.sortOrder),
+]);
 
 // ── Relations ─────────────────────────────────────────────────────────────────
 
