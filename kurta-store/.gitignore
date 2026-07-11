@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# self-hosted media (dev-local fallback dir only)
+/uploads
+
 # production
 /build
 

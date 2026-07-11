@@ -18,8 +18,10 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "sharp": ["./node_modules/sharp/lib/index.d.ts"]
     }
   },
   "include": [
@@ -34,9 +36,14 @@
   "ts-node": {
     "compilerOptions": {
       "module": "CommonJS",
-      "moduleResolution": "node"
+      "moduleResolution": "node",
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["./src/*"]
+      }
     },
-    "esm": false
+    "esm": false,
+    "require": ["tsconfig-paths/register"]
   }
 }
 
