@@ -77,13 +77,11 @@ export default function OverviewTab({ onTabChange, initialStats }: OverviewTabPr
                 transition={{ delay: i * 0.07, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                 onClick={() => onTabChange(stat.tab)}
                 style={{
-                  background: 'var(--glass-bg)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid var(--glass-border)',
+                  background: 'var(--admin-card-bg)',
+                  border: '1px solid var(--admin-card-border)',
                   borderRadius: '12px',
                   padding: '24px',
-                  boxShadow: 'var(--glass-shadow)',
+                  boxShadow: 'var(--admin-card-shadow)',
                   textAlign: 'left', cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -108,13 +106,11 @@ export default function OverviewTab({ onTabChange, initialStats }: OverviewTabPr
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              background: 'var(--glass-bg)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid var(--glass-border)',
+              background: 'var(--admin-card-bg)',
+              border: '1px solid var(--admin-card-border)',
               borderRadius: '12px',
               padding: '28px',
-              boxShadow: 'var(--glass-shadow)',
+              boxShadow: 'var(--admin-card-shadow)',
             }}
           >
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', color: 'var(--color-brand-charcoal)', margin: '0 0 20px', fontWeight: 400 }}>

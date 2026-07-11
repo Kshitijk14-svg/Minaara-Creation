@@ -12,12 +12,10 @@ interface AdminTableProps {
 export default function AdminTable({ headers, children, empty, isEmpty }: AdminTableProps) {
   return (
     <div style={{
-      background: 'var(--glass-bg)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-      border: '1px solid var(--glass-border)',
+      background: 'var(--admin-card-bg)',
+      border: '1px solid var(--admin-card-border)',
       borderRadius: '12px',
-      boxShadow: 'var(--glass-shadow)',
+      boxShadow: 'var(--admin-card-shadow)',
       overflow: 'hidden',
     }}>
       <div style={{ overflowX: 'auto' }}>

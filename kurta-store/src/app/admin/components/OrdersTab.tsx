@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Order, OrderStatus, PaymentStatus } from '@/types/schema';
+import { localResize } from '@/lib/media';
 import AdminTable, { Td } from './shared/AdminTable';
 import ConfirmInline from './shared/ConfirmInline';
 import FormField, { inputStyle, selectStyle } from './shared/FormField';
@@ -20,11 +21,11 @@ function formatDateTime(s: string) {
   return new Date(s).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function OrdersTab() {
-  const [orders, setOrders]           = useState<Order[]>([]);
-  const [total, setTotal]             = useState(0);
-  const [nextCursor, setNextCursor]   = useState<string | null>(null);
-  const [loading, setLoading]         = useState(true);
+export default function OrdersTab({ initialData }: { initialData?: any }) {
+  const [orders, setOrders]           = useState<Order[]>(initialData?.data ?? []);
+  const [total, setTotal]             = useState<number>(initialData?.total ?? 0);
+  const [nextCursor, setNextCursor]   = useState<string | null>(initialData?.nextCursor ?? null);
+  const [loading, setLoading]         = useState(!initialData);
   const [statusFilter, setStatusFilter]   = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [emailSearch, setEmailSearch]     = useState('');
@@ -39,7 +40,9 @@ export default function OrdersTab() {
   const [cancelId, setCancelId]       = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelling, setCancelling]   = useState(false);
-  const emailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emailTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender    = useRef(true);
+  const hadInitialData   = useRef(!!initialData);
 
   const fetchOrders = useCallback(async (status: string, payment: string, email: string, cursor?: string) => {
     setLoading(true);
@@ -67,6 +70,14 @@ export default function OrdersTab() {
   }, []);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (!hadInitialData.current) {
+        fetchOrders(statusFilter, paymentFilter, emailSearch);
+        setDetailId(null);
+      }
+      return;
+    }
     if (emailTimer.current) clearTimeout(emailTimer.current);
     emailTimer.current = setTimeout(() => {
       fetchOrders(statusFilter, paymentFilter, emailSearch);
@@ -75,20 +86,15 @@ export default function OrdersTab() {
     return () => { if (emailTimer.current) clearTimeout(emailTimer.current); };
   }, [statusFilter, paymentFilter, emailSearch, fetchOrders]);
 
-  async function toggleDetail(orderId: string, order: Order) {
+  function toggleDetail(orderId: string, order: Order) {
     if (detailId === orderId) { setDetailId(null); setDetailOrder(null); return; }
     setDetailId(orderId);
     setUpdatingId(orderId);
     setUpdateStatus(order.status);
     setUpdatePayment(order.paymentStatus);
     setUpdateNotes(order.notes || '');
-    setDetailLoading(true);
-    try {
-      const res = await fetch(`/api/orders/${orderId}`);
-      const data = await res.json();
-      setDetailOrder(data.order || data);
-    } catch { setDetailOrder(order); }
-    finally { setDetailLoading(false); }
+    setDetailLoading(false);
+    setDetailOrder(order);
   }
 
   async function handleStatusUpdate(orderId: string) {
@@ -170,12 +176,10 @@ export default function OrdersTab() {
         <LoadingSkeleton rows={5} />
       ) : (
         <div style={{
-          background: 'var(--glass-bg)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid var(--glass-border)',
+          background: 'var(--admin-card-bg)',
+          border: '1px solid var(--admin-card-border)',
           borderRadius: '12px',
-          boxShadow: 'var(--glass-shadow)',
+          boxShadow: 'var(--admin-card-shadow)',
           overflow: 'hidden',
         }}>
           <div style={{ overflowX: 'auto' }}>
@@ -254,7 +258,7 @@ export default function OrdersTab() {
                                       {(detailOrder?.items || order.items || []).map((item, idx) => (
                                         <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                           {item.imageUrl && (
-                                            <img src={item.imageUrl} alt={item.title} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
+                                            <img src={localResize(item.imageUrl, 80)} alt={item.title} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
                                           )}
                                           <div style={{ flex: 1 }}>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 500, color: 'var(--color-brand-charcoal)', margin: '0 0 2px' }}>

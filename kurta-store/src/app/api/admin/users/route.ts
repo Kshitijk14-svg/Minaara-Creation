@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { users } from '@/db/schema';
 import { auth } from '@/lib/auth';
+import { cacheGet, cacheSet, invalidateTags } from '@/lib/cache';
 import { eq, like, and, desc } from 'drizzle-orm';
+
+const USERS_TTL = 120;
 
 type Role = 'SUPER_ADMIN' | 'ADMIN' | 'STAFF' | 'CUSTOMER';
 
@@ -27,6 +30,10 @@ export async function GET(request: NextRequest) {
     const roleFilter  = searchParams.get('role') as Role | null;
     const emailSearch = searchParams.get('email')?.trim();
 
+    const cacheKey = `admin:users:${roleFilter ?? ''}:${emailSearch ?? ''}`;
+    const cached = await cacheGet<{ users: object[] }>(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const conditions: ReturnType<typeof eq>[] = [];
     if (roleFilter && ROLE_RANK[roleFilter]) conditions.push(eq(users.role, roleFilter));
     if (emailSearch) conditions.push(like(users.email, `%${emailSearch}%`));
@@ -38,7 +45,10 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(users.createdAt))
       .limit(100);
 
-    return NextResponse.json({ users: rows.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })) });
+    const result = { users: rows.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })) };
+    await cacheSet(cacheKey, result, ['admin-users'], USERS_TTL);
+
+    return NextResponse.json(result);
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') console.error('[GET /api/admin/users]', err);
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
@@ -72,6 +82,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     await db.update(users).set({ role: targetRole, updatedAt: new Date() }).where(eq(users.id, userId));
+    await invalidateTags(['admin-users']);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

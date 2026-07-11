@@ -14,9 +14,10 @@ const CouponsTab     = dynamic(() => import('./components/CouponsTab'));
 const OrdersTab      = dynamic(() => import('./components/OrdersTab'));
 const BlogTab        = dynamic(() => import('./components/BlogTab'));
 const DesignTab      = dynamic(() => import('./components/DesignTab'));
+const TestimonialsTab = dynamic(() => import('./components/TestimonialsTab'));
 const UsersTab       = dynamic(() => import('./components/UsersTab'));
 
-type AdminTab = 'overview' | 'products' | 'collections' | 'coupons' | 'orders' | 'blog' | 'design' | 'users';
+type AdminTab = 'overview' | 'products' | 'collections' | 'coupons' | 'orders' | 'blog' | 'design' | 'testimonials' | 'users';
 
 interface AdminClientProps {
   session: any;
@@ -28,6 +29,10 @@ interface AdminClientProps {
     ordersToday: number;
     revenueToday: number;
   } | null;
+  initialProductsData?: any;
+  initialCollectionsData?: any;
+  initialOrdersData?: any;
+  initialCouponsData?: any;
 }
 
 const GridIcon = () => (
@@ -84,20 +89,41 @@ const UsersIcon = () => (
     <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
   </svg>
 );
+const QuoteIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21c3 0 7-1.5 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21z"/>
+    <path d="M15 21c3 0 7-1.5 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v4z"/>
+  </svg>
+);
 
 const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'overview',    label: 'Overview',    icon: <GridIcon /> },
-  { id: 'products',    label: 'Products',    icon: <BoxIcon /> },
-  { id: 'collections', label: 'Collections', icon: <FolderIcon /> },
-  { id: 'coupons',     label: 'Coupons',     icon: <TagIcon /> },
-  { id: 'orders',      label: 'Orders',      icon: <ShoppingBagIcon /> },
-  { id: 'blog',        label: 'Journal',     icon: <PenIcon /> },
-  { id: 'design',      label: 'Design',      icon: <PaletteIcon /> },
-  { id: 'users',       label: 'Users',       icon: <UsersIcon /> },
+  { id: 'overview',     label: 'Overview',     icon: <GridIcon /> },
+  { id: 'products',     label: 'Products',     icon: <BoxIcon /> },
+  { id: 'collections',  label: 'Collections',  icon: <FolderIcon /> },
+  { id: 'coupons',      label: 'Coupons',      icon: <TagIcon /> },
+  { id: 'orders',       label: 'Orders',       icon: <ShoppingBagIcon /> },
+  { id: 'blog',         label: 'Journal',      icon: <PenIcon /> },
+  { id: 'design',       label: 'Design',       icon: <PaletteIcon /> },
+  { id: 'testimonials', label: 'Testimonials', icon: <QuoteIcon /> },
+  { id: 'users',        label: 'Users',        icon: <UsersIcon /> },
 ];
 
-export default function AdminClient({ session, initialStats }: AdminClientProps) {
-  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+const TAB_IDS = new Set(tabs.map((t) => t.id));
+
+function initialTabFromUrl(): AdminTab {
+  if (typeof window === 'undefined') return 'overview';
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  return tab && TAB_IDS.has(tab as AdminTab) ? (tab as AdminTab) : 'overview';
+}
+
+export default function AdminClient({ session, initialStats, initialProductsData, initialCollectionsData, initialOrdersData, initialCouponsData }: AdminClientProps) {
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTabFromUrl);
+  const [visitedTabs, setVisitedTabs] = useState<Set<AdminTab>>(() => new Set(['overview', initialTabFromUrl()]));
+
+  const handleTabChange = (tab: AdminTab) => {
+    setVisitedTabs((prev) => new Set([...prev, tab]));
+    setActiveTab(tab);
+  };
 
   const user = session?.user;
   const role = (user as any)?.role as string;
@@ -212,7 +238,7 @@ export default function AdminClient({ session, initialStats }: AdminClientProps)
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '14px 20px',
@@ -233,32 +259,51 @@ export default function AdminClient({ session, initialStats }: AdminClientProps)
         </div>
       </div>
 
-      {/* Tab Content — all tabs stay mounted to avoid re-fetching on switch */}
+      {/* Tab Content — tabs mount on first visit and stay mounted (display:none) thereafter */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px', position: 'relative' }}>
         <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
-          <OverviewTab onTabChange={setActiveTab} initialStats={initialStats} />
+          <OverviewTab onTabChange={handleTabChange} initialStats={initialStats} />
         </div>
-        <div style={{ display: activeTab === 'products' ? 'block' : 'none' }}>
-          <ProductsTab role={role} />
-        </div>
-        <div style={{ display: activeTab === 'collections' ? 'block' : 'none' }}>
-          <CollectionsTab role={role} />
-        </div>
-        <div style={{ display: activeTab === 'coupons' ? 'block' : 'none' }}>
-          <CouponsTab />
-        </div>
-        <div style={{ display: activeTab === 'orders' ? 'block' : 'none' }}>
-          <OrdersTab />
-        </div>
-        <div style={{ display: activeTab === 'blog' ? 'block' : 'none' }}>
-          <BlogTab />
-        </div>
-        <div style={{ display: activeTab === 'design' ? 'block' : 'none' }}>
-          <DesignTab />
-        </div>
-        <div style={{ display: activeTab === 'users' ? 'block' : 'none' }}>
-          <UsersTab callerRole={role as any ?? 'STAFF'} />
-        </div>
+        {visitedTabs.has('products') && (
+          <div style={{ display: activeTab === 'products' ? 'block' : 'none' }}>
+            <ProductsTab role={role} initialData={initialProductsData} />
+          </div>
+        )}
+        {visitedTabs.has('collections') && (
+          <div style={{ display: activeTab === 'collections' ? 'block' : 'none' }}>
+            <CollectionsTab role={role} initialData={initialCollectionsData} />
+          </div>
+        )}
+        {visitedTabs.has('coupons') && (
+          <div style={{ display: activeTab === 'coupons' ? 'block' : 'none' }}>
+            <CouponsTab initialData={initialCouponsData} />
+          </div>
+        )}
+        {visitedTabs.has('orders') && (
+          <div style={{ display: activeTab === 'orders' ? 'block' : 'none' }}>
+            <OrdersTab initialData={initialOrdersData} />
+          </div>
+        )}
+        {visitedTabs.has('blog') && (
+          <div style={{ display: activeTab === 'blog' ? 'block' : 'none' }}>
+            <BlogTab />
+          </div>
+        )}
+        {visitedTabs.has('design') && (
+          <div style={{ display: activeTab === 'design' ? 'block' : 'none' }}>
+            <DesignTab />
+          </div>
+        )}
+        {visitedTabs.has('testimonials') && (
+          <div style={{ display: activeTab === 'testimonials' ? 'block' : 'none' }}>
+            <TestimonialsTab />
+          </div>
+        )}
+        {visitedTabs.has('users') && (
+          <div style={{ display: activeTab === 'users' ? 'block' : 'none' }}>
+            <UsersTab callerRole={role as any ?? 'STAFF'} />
+          </div>
+        )}
       </div>
 
       <style>{`

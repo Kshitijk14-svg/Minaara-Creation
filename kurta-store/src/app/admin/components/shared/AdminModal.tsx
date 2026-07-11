@@ -49,10 +49,8 @@ export default function AdminModal({ isOpen, onClose, title, width = '540px', ch
             style={{
               width: '100%', maxWidth: width, maxHeight: '90vh',
               overflowY: 'auto',
-              background: 'var(--glass-bg)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid var(--glass-border)',
+              background: 'var(--admin-card-bg)',
+              border: '1px solid var(--admin-card-border)',
               borderRadius: '16px',
               boxShadow: '0 24px 64px rgba(15,42,91,0.18)',
             }}

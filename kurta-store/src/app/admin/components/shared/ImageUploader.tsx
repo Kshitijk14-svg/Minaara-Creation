@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import { localResize } from '@/lib/media';
 
 interface ImageUploaderProps {
   images: string[];
@@ -26,8 +27,12 @@ export default function ImageUploader({ images, onChange, maxImages = 8 }: Image
       toUpload.forEach((f) => fd.append('files', f));
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       if (!res.ok) {
-        const err = await res.json();
-        setUploadError(err.error || 'Upload failed');
+        try {
+          const err = await res.json();
+          setUploadError(err.error || 'Upload failed');
+        } catch {
+          setUploadError('Upload failed (server error)');
+        }
         return;
       }
       const { urls } = await res.json();
@@ -91,7 +96,7 @@ export default function ImageUploader({ images, onChange, maxImages = 8 }: Image
             }}
           >
             <img
-              src={url}
+              src={localResize(url, 200)}
               alt={`Image ${i + 1}`}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
               onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}

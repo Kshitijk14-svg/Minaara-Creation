@@ -1,50 +1,28 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Collection } from '@/types/schema';
 import AdminTable, { Td } from './shared/AdminTable';
-import AdminModal from './shared/AdminModal';
 import ConfirmInline from './shared/ConfirmInline';
-import FormField, { inputStyle, selectStyle } from './shared/FormField';
 import LoadingSkeleton from './shared/LoadingSkeleton';
 
 interface CollectionsTabProps {
   role: string;
-}
-
-interface CollectionForm {
-  name: string;
-  slug: string;
-  description: string;
-  imageUrl: string;
-  sortOrder: string;
-  isActive: boolean;
-}
-
-const emptyForm: CollectionForm = {
-  name: '', slug: '', description: '', imageUrl: '', sortOrder: '0', isActive: true,
-};
-
-function toSlug(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  initialData?: any;
 }
 
 function formatDate(s: string) {
   return new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function CollectionsTab({ role }: CollectionsTabProps) {
+export default function CollectionsTab({ role, initialData }: CollectionsTabProps) {
   const canWrite = role !== 'STAFF';
+  const router = useRouter();
 
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [modalOpen, setModalOpen]     = useState(false);
-  const [editing, setEditing]         = useState<Collection | null>(null);
-  const [form, setForm]               = useState<CollectionForm>(emptyForm);
-  const [slugLocked, setSlugLocked]   = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [formError, setFormError]     = useState<string | null>(null);
+  const [collections, setCollections] = useState<Collection[]>(initialData?.data ?? []);
+  const [loading, setLoading]         = useState(!initialData);
   const [deleteId, setDeleteId]       = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting]       = useState(false);
@@ -62,42 +40,17 @@ export default function CollectionsTab({ role }: CollectionsTabProps) {
     }
   }, []);
 
-  useEffect(() => { fetchCollections(); }, [fetchCollections]);
+  useEffect(() => {
+    if (!initialData) { fetchCollections(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchCollections]);
 
   function openCreate() {
-    setEditing(null);
-    setForm(emptyForm);
-    setSlugLocked(false);
-    setFormError(null);
-    setModalOpen(true);
+    router.push('/admin/collections/new');
   }
 
   function openEdit(col: Collection) {
-    setEditing(col);
-    setForm({
-      name: col.name, slug: col.slug,
-      description: col.description || '',
-      imageUrl: col.imageUrl || '',
-      sortOrder: String(col.sortOrder),
-      isActive: col.isActive,
-    });
-    setSlugLocked(true);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  function closeModal() {
-    setModalOpen(false);
-    setEditing(null);
-    setFormError(null);
-  }
-
-  function onNameChange(name: string) {
-    setForm((f) => ({
-      ...f,
-      name,
-      slug: slugLocked ? f.slug : toSlug(name),
-    }));
+    router.push(`/admin/collections/${col.id}/edit`);
   }
 
   async function handleToggleActive(col: Collection) {
@@ -114,41 +67,6 @@ export default function CollectionsTab({ role }: CollectionsTabProps) {
       if (!res.ok) throw new Error();
     } catch {
       setCollections(collections); // revert
-    }
-  }
-
-  async function handleSave() {
-    setFormError(null);
-    if (!form.name.trim()) { setFormError('Name is required'); return; }
-    if (!form.slug.trim()) { setFormError('Slug is required'); return; }
-    setSaving(true);
-    try {
-      const payload = {
-        ...(editing ? { id: editing.id } : {}),
-        name: form.name.trim(),
-        slug: form.slug.trim(),
-        description: form.description || undefined,
-        imageUrl: form.imageUrl || undefined,
-        sortOrder: parseInt(form.sortOrder) || 0,
-        isActive: form.isActive,
-      };
-      const res = await fetch('/api/collections', {
-        method: editing ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        if (res.status === 409) { setFormError('A collection with that name or slug already exists'); return; }
-        setFormError(err.error || 'Something went wrong');
-        return;
-      }
-      await fetchCollections();
-      closeModal();
-    } catch {
-      setFormError('Network error. Please try again.');
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -288,126 +206,6 @@ export default function CollectionsTab({ role }: CollectionsTabProps) {
           ))}
         </AdminTable>
       )}
-
-      {/* Create / Edit Modal */}
-      <AdminModal isOpen={modalOpen} onClose={closeModal} title={editing ? 'Edit Collection' : 'New Collection'}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <FormField label="Name" required>
-            <input
-              style={inputStyle}
-              value={form.name}
-              onChange={(e) => onNameChange(e.target.value)}
-              placeholder="e.g. Summer Kurtas"
-            />
-          </FormField>
-
-          <FormField label="Slug" required hint="Auto-generated from name. Used in URLs.">
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input
-                style={{ ...inputStyle, flex: 1 }}
-                value={form.slug}
-                onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                placeholder="summer-kurtas"
-              />
-              <button
-                type="button"
-                onClick={() => setSlugLocked((l) => !l)}
-                style={{
-                  flexShrink: 0, padding: '8px 12px', borderRadius: '6px',
-                  border: '1px solid var(--color-brand-mist)',
-                  background: slugLocked ? 'rgba(15,42,91,0.06)' : 'none',
-                  fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                  textTransform: 'uppercase', letterSpacing: '0.1em',
-                  color: 'var(--color-brand-charcoal)', cursor: 'pointer',
-                  opacity: 0.7,
-                }}
-              >
-                {slugLocked ? 'Unlock' : 'Lock'}
-              </button>
-            </div>
-          </FormField>
-
-          <FormField label="Description">
-            <textarea
-              style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' } as React.CSSProperties}
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Brief description of this collection"
-            />
-          </FormField>
-
-          <FormField label="Image URL">
-            <input
-              style={inputStyle}
-              value={form.imageUrl}
-              onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
-              placeholder="https://..."
-            />
-          </FormField>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <FormField label="Sort Order">
-              <input
-                style={inputStyle}
-                type="number"
-                value={form.sortOrder}
-                onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
-                min="0"
-              />
-            </FormField>
-            <FormField label="Active">
-              <div style={{ display: 'flex', alignItems: 'center', paddingTop: '6px' }}>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={form.isActive}
-                    onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  />
-                  <span className="toggle-slider" />
-                </label>
-                <span style={{ marginLeft: '12px', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.6 }}>
-                  {form.isActive ? 'Visible in store' : 'Hidden'}
-                </span>
-              </div>
-            </FormField>
-          </div>
-
-          {formError && (
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: '#dc2626', margin: 0 }}>
-              {formError}
-            </p>
-          )}
-
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', paddingTop: '4px' }}>
-            <button
-              onClick={closeModal}
-              style={{
-                padding: '10px 18px', borderRadius: '6px',
-                border: '1px solid var(--color-brand-mist)',
-                background: 'none', fontFamily: 'var(--font-body)', fontSize: '10px',
-                fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em',
-                color: 'var(--color-brand-charcoal)', opacity: 0.6, cursor: 'pointer',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                padding: '10px 20px', borderRadius: '6px', border: 'none',
-                background: 'var(--color-brand-charcoal)', color: '#fff',
-                fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.12em',
-                cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
-              }}
-              className="btn-liquid"
-            >
-              {saving ? 'Saving…' : editing ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </div>
-      </AdminModal>
     </div>
   );
 }

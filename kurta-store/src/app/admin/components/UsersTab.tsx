@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import LoadingSkeleton from './shared/LoadingSkeleton';
 import AdminTable from './shared/AdminTable';
+import StatusBadge from './shared/StatusBadge';
 
 type Role = 'SUPER_ADMIN' | 'ADMIN' | 'STAFF' | 'CUSTOMER';
 
@@ -30,22 +31,78 @@ function getInitials(name: string | null, email: string): string {
   return email[0].toUpperCase();
 }
 
+interface Subscriber {
+  id: string; email: string; isActive: boolean; subscribedAt: string;
+}
+
+function SubscribersView() {
+  const [subs, setSubs]       = useState<Subscriber[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal]     = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/admin/newsletter');
+        if (res.ok) {
+          const data = await res.json();
+          setSubs(data.data ?? []);
+          setTotal(data.total ?? 0);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  if (loading) return <LoadingSkeleton rows={6} />;
+
+  return (
+    <>
+      <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.5, marginBottom: '16px' }}>
+        {total} newsletter subscriber{total === 1 ? '' : 's'}
+      </p>
+      <AdminTable
+        headers={['Email', 'Status', 'Subscribed']}
+        isEmpty={subs.length === 0}
+        empty={<p style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--color-brand-charcoal)', opacity: 0.4 }}>No newsletter subscribers yet.</p>}
+      >
+        {subs.map((s) => (
+          <tr key={s.id} style={{ borderBottom: '1px solid var(--color-brand-mist)' }}>
+            <td style={{ padding: '14px 16px', fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-brand-charcoal)' }}>{s.email}</td>
+            <td style={{ padding: '14px 16px' }}>
+              <StatusBadge status={s.isActive ? 'ACTIVE' : 'INACTIVE'} />
+            </td>
+            <td style={{ padding: '14px 16px', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.5 }}>{fmtDate(s.subscribedAt)}</td>
+          </tr>
+        ))}
+      </AdminTable>
+    </>
+  );
+}
+
 interface Props { callerRole: Role; }
 
 export default function UsersTab({ callerRole }: Props) {
+  const [view, setView]             = useState<'users' | 'subscribers'>('users');
   const [users, setUsers]           = useState<UserRow[]>([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
   const [roleFilter, setRoleFilter] = useState<Role | ''>('');
   const [saving, setSaving]         = useState<string | null>(null);
   const [error, setError]           = useState('');
+  const searchTimer                 = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (q: string, role: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search)     params.set('email', search);
-      if (roleFilter) params.set('role', roleFilter);
+      if (q)    params.set('email', q);
+      if (role) params.set('role', role);
       const res = await fetch(`/api/admin/users?${params}`);
       if (res.ok) {
         const data = await res.json();
@@ -54,9 +111,13 @@ export default function UsersTab({ callerRole }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [search, roleFilter]);
+  }, []);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => fetchUsers(search, roleFilter), 350);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, [search, roleFilter, fetchUsers]);
 
   const updateRole = async (userId: string, role: Role) => {
     setSaving(userId); setError('');
@@ -83,12 +144,31 @@ export default function UsersTab({ callerRole }: Props) {
 
   return (
     <div style={{ padding: '32px 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400, color: 'var(--color-brand-charcoal)', margin: 0 }}>
-          Users
+          {view === 'users' ? 'Users' : 'Newsletter Subscribers'}
         </h2>
+        <div style={{ display: 'flex', gap: '2px', padding: '3px', borderRadius: '8px', backgroundColor: 'rgba(15,42,91,0.04)' }}>
+          {(['users', 'subscribers'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em',
+                backgroundColor: view === v ? 'var(--admin-card-bg)' : 'transparent',
+                color: 'var(--color-brand-charcoal)', opacity: view === v ? 1 : 0.5,
+                boxShadow: view === v ? '0 1px 4px rgba(15,42,91,0.1)' : 'none',
+              }}
+            >
+              {v === 'users' ? 'Users' : 'Subscribers'}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {view === 'subscribers' ? <SubscribersView /> : (
+        <>
       {/* Filters */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <input
@@ -195,6 +275,8 @@ export default function UsersTab({ callerRole }: Props) {
             </tr>
           ))}
         </AdminTable>
+      )}
+        </>
       )}
     </div>
   );
