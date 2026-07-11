@@ -62,6 +62,13 @@ const FooterContentSchema = z.object({
   links:   z.array(z.object({ href: z.string(), label: z.string() })),
 });
 
+const HaveliConfigSchema = z.object({
+  imageUrl:    z.string(),
+  heading:     z.string(),
+  subheading:  z.string(),
+  description: z.string(),
+});
+
 const PatchDesignConfigSchema = z.object({
   heroBanners:      z.array(HeroBannerSchema).optional(),
   isLookbookActive: z.boolean().optional(),
@@ -74,6 +81,7 @@ const PatchDesignConfigSchema = z.object({
   editorialStories: z.array(EditorialStorySchema).optional(),
   stats:            z.array(StatItemSchema).optional(),
   footerContent:    FooterContentSchema.optional(),
+  haveliConfig:     HaveliConfigSchema.optional(),
 });
 
 function rowToSchema(c: {
@@ -89,6 +97,7 @@ function rowToSchema(c: {
   editorialStories: unknown;
   stats: unknown;
   footerContent: unknown;
+  haveliConfig: unknown;
   updatedAt: Date;
 }): DesignConfig {
   return {
@@ -104,6 +113,7 @@ function rowToSchema(c: {
     editorialStories: (c.editorialStories as DesignConfig['editorialStories']) ?? undefined,
     stats:            (c.stats as DesignConfig['stats']) ?? undefined,
     footerContent:    (c.footerContent as DesignConfig['footerContent']) ?? undefined,
+    haveliConfig:     (c.haveliConfig as DesignConfig['haveliConfig']) ?? undefined,
     updatedAt:        c.updatedAt.toISOString(),
   };
 }
@@ -127,6 +137,7 @@ export async function GET() {
         editorialStories: designConfigs.editorialStories,
         stats:            designConfigs.stats,
         footerContent:    designConfigs.footerContent,
+        haveliConfig:     designConfigs.haveliConfig,
         updatedAt:        designConfigs.updatedAt,
       })
       .from(designConfigs)
@@ -171,6 +182,7 @@ export async function PATCH(request: NextRequest) {
     if (parsed.data.editorialStories !== undefined) updateData.editorialStories = parsed.data.editorialStories;
     if (parsed.data.stats !== undefined)            updateData.stats            = parsed.data.stats;
     if (parsed.data.footerContent !== undefined)    updateData.footerContent    = parsed.data.footerContent;
+    if (parsed.data.haveliConfig !== undefined)     updateData.haveliConfig     = parsed.data.haveliConfig;
 
     await db
       .update(designConfigs)
@@ -191,6 +203,7 @@ export async function PATCH(request: NextRequest) {
         editorialStories: designConfigs.editorialStories,
         stats:            designConfigs.stats,
         footerContent:    designConfigs.footerContent,
+        haveliConfig:     designConfigs.haveliConfig,
         updatedAt:        designConfigs.updatedAt,
       })
       .from(designConfigs)

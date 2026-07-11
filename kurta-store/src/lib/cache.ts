@@ -117,12 +117,22 @@ export const StorefrontKeys = {
   homeFeatured:       'products_list:featured:true:8:0',
   homeCollections:    'collections_list:home:8:0',
   homeTestimonials:   'testimonials_list:home',
+  homeHaveliHotspots: 'haveli_hotspots_list:home',
 } as const;
 
 /** Purge the homepage testimonials cache. Call after any testimonial mutation. */
 export async function invalidateStorefrontTestimonials(): Promise<void> {
   try {
     await redis.del(StorefrontKeys.homeTestimonials);
+  } catch {
+    // non-fatal
+  }
+}
+
+/** Purge the homepage Haveli hotspot cache. Call after any hotspot mutation. */
+export async function invalidateStorefrontHaveliHotspots(): Promise<void> {
+  try {
+    await redis.del(StorefrontKeys.homeHaveliHotspots);
   } catch {
     // non-fatal
   }

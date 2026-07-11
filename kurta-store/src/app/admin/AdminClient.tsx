@@ -15,9 +15,10 @@ const OrdersTab      = dynamic(() => import('./components/OrdersTab'));
 const BlogTab        = dynamic(() => import('./components/BlogTab'));
 const DesignTab      = dynamic(() => import('./components/DesignTab'));
 const TestimonialsTab = dynamic(() => import('./components/TestimonialsTab'));
+const HaveliTab       = dynamic(() => import('./components/HaveliTab'));
 const UsersTab       = dynamic(() => import('./components/UsersTab'));
 
-type AdminTab = 'overview' | 'products' | 'collections' | 'coupons' | 'orders' | 'blog' | 'design' | 'testimonials' | 'users';
+type AdminTab = 'overview' | 'products' | 'collections' | 'coupons' | 'orders' | 'blog' | 'design' | 'testimonials' | 'haveli' | 'users';
 
 interface AdminClientProps {
   session: any;
@@ -95,6 +96,11 @@ const QuoteIcon = () => (
     <path d="M15 21c3 0 7-1.5 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v4z"/>
   </svg>
 );
+const MapPinIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+  </svg>
+);
 
 const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview',     label: 'Overview',     icon: <GridIcon /> },
@@ -105,6 +111,7 @@ const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   { id: 'blog',         label: 'Journal',      icon: <PenIcon /> },
   { id: 'design',       label: 'Design',       icon: <PaletteIcon /> },
   { id: 'testimonials', label: 'Testimonials', icon: <QuoteIcon /> },
+  { id: 'haveli',       label: 'Haveli Edit',  icon: <MapPinIcon /> },
   { id: 'users',        label: 'Users',        icon: <UsersIcon /> },
 ];
 
@@ -297,6 +304,11 @@ export default function AdminClient({ session, initialStats, initialProductsData
         {visitedTabs.has('testimonials') && (
           <div style={{ display: activeTab === 'testimonials' ? 'block' : 'none' }}>
             <TestimonialsTab />
+          </div>
+        )}
+        {visitedTabs.has('haveli') && (
+          <div style={{ display: activeTab === 'haveli' ? 'block' : 'none' }}>
+            <HaveliTab />
           </div>
         )}
         {visitedTabs.has('users') && (

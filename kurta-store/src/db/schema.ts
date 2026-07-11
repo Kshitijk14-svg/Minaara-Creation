@@ -230,8 +230,21 @@ export const designConfigs = mysqlTable('design_configs', {
   editorialStories: parsedJson<Array<{ chapter: string; title: string; desc: string; imageUrl: string; href: string }>>('editorialStories'),
   stats:            parsedJson<Array<{ value: number; suffix: string; label: string }>>('stats'),
   footerContent:    parsedJson<{ tagline: string; links: Array<{ href: string; label: string }> }>('footerContent'),
+  haveliConfig:     parsedJson<{ imageUrl: string; heading: string; subheading: string; description: string }>('haveliConfig'),
   updatedAt:       datetime('updatedAt').notNull().$defaultFn(() => new Date()),
 });
+
+export const haveliHotspots = mysqlTable('haveli_hotspots', {
+  id:        varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+  productId: varchar('productId', { length: 36 }).notNull(),
+  x:         double('x').notNull(),
+  y:         double('y').notNull(),
+  sortOrder: int('sortOrder').default(0).notNull(),
+  createdAt: datetime('createdAt').notNull().$defaultFn(() => new Date()),
+  updatedAt: datetime('updatedAt').notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  index('haveli_hotspot_sort_idx').on(t.sortOrder),
+]);
 
 // ── New tables (added by Drizzle migration) ───────────────────────────────────
 

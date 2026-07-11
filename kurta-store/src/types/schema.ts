@@ -220,6 +220,13 @@ export interface FooterContent {
   links: FooterLink[];
 }
 
+export interface HaveliConfig {
+  imageUrl: string;
+  heading: string;
+  subheading: string;
+  description: string;
+}
+
 export interface DesignConfig {
   id: string;
   heroBanners: HeroBanner[];
@@ -233,6 +240,7 @@ export interface DesignConfig {
   editorialStories?: EditorialStory[];
   stats?: StatItem[];
   footerContent?: FooterContent;
+  haveliConfig?: HaveliConfig;
   updatedAt: string;
 }
 
@@ -300,5 +308,18 @@ export interface LookbookHotspotData {
   x: number;
   y: number;
   product: Product;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HAVELI EDIT (admin-managed homepage hotspot section)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface HaveliHotspot {
+  id: string;
+  productId: string;
+  x: number;
+  y: number;
+  sortOrder: number;
+  product?: Pick<Product, 'id' | 'title' | 'slug' | 'priceINR' | 'images'>;
 }
 

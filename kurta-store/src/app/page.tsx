@@ -1,4 +1,4 @@
-import type { Product, DesignConfig, Collection, Testimonial } from '@/types/schema';
+import type { Product, DesignConfig, Collection, Testimonial, LookbookHotspotData } from '@/types/schema';
 import HomeClient from './HomeClient';
 import { StorefrontKeys } from '@/lib/cache';
 
@@ -282,6 +282,7 @@ async function getDesignConfig(): Promise<DesignConfig | null> {
         editorialStories: (config.editorialStories as unknown as DesignConfig['editorialStories']) ?? undefined,
         stats:            (config.stats as unknown as DesignConfig['stats']) ?? undefined,
         footerContent:    (config.footerContent as unknown as DesignConfig['footerContent']) ?? undefined,
+        haveliConfig:     (config.haveliConfig as unknown as DesignConfig['haveliConfig']) ?? undefined,
         updatedAt:        config.updatedAt.toISOString(),
       };
       const { redis } = await import('@/lib/redis');
@@ -340,8 +341,97 @@ async function getHomeTestimonials(): Promise<Testimonial[]> {
   }
 }
 
+async function getHomeHaveliHotspots(): Promise<LookbookHotspotData[]> {
+  if (
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.DATABASE_URL?.includes('password@localhost')
+  ) {
+    return [];
+  }
+
+  const CACHE_KEY = StorefrontKeys.homeHaveliHotspots;
+
+  try {
+    const { redis } = await import('@/lib/redis');
+    const cached = await redis.get<{ hotspots: LookbookHotspotData[] }>(CACHE_KEY);
+    if (cached?.hotspots) return cached.hotspots;
+  } catch {}
+
+  try {
+    const { db } = await import('@/db/index');
+    const { haveliHotspots, products, collections, productSizeVariants, productImages } = await import('@/db/schema');
+    const { asc, inArray, eq } = await import('drizzle-orm');
+
+    const pins = await withTimeout(
+      db.select().from(haveliHotspots).orderBy(asc(haveliHotspots.sortOrder))
+    );
+
+    const productIds = [...new Set(pins.map((r) => r.productId))];
+    let formatted: LookbookHotspotData[] = [];
+
+    if (productIds.length > 0) {
+      // Hydrate full Product objects (variants/sizes/images/collection) — the
+      // storefront hotspot card's Quick Add flow needs the full shape, not
+      // just the lightweight {title,slug,priceINR,images} the admin picker uses.
+      const [productRows, varRows, imgRows] = await Promise.all([
+        db.select({
+          id: products.id, title: products.title, slug: products.slug,
+          description: products.description, priceINR: products.priceINR,
+          compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
+          isActive: products.isActive, isFeatured: products.isFeatured,
+          createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
+          collectionName: collections.name, collectionSlug: collections.slug,
+        }).from(products).leftJoin(collections, eq(products.collectionId, collections.id)).where(inArray(products.id, productIds)),
+        db.select({ productId: productSizeVariants.productId, id: productSizeVariants.id, size: productSizeVariants.size, stock: productSizeVariants.stock })
+          .from(productSizeVariants).where(inArray(productSizeVariants.productId, productIds)).orderBy(asc(productSizeVariants.size)),
+        db.select({ productId: productImages.productId, id: productImages.id, url: productImages.url, altText: productImages.altText, sortOrder: productImages.sortOrder })
+          .from(productImages).where(inArray(productImages.productId, productIds)).orderBy(asc(productImages.sortOrder)),
+      ]);
+
+      const varMap = new Map<string, typeof varRows>();
+      const imgMap = new Map<string, typeof imgRows>();
+      for (const v of varRows) { if (!varMap.has(v.productId)) varMap.set(v.productId, []); varMap.get(v.productId)!.push(v); }
+      for (const img of imgRows) { if (!imgMap.has(img.productId)) imgMap.set(img.productId, []); imgMap.get(img.productId)!.push(img); }
+
+      const productMap = new Map(productRows.map((p) => {
+        const variants = varMap.get(p.id) ?? [];
+        const images   = imgMap.get(p.id)  ?? [];
+        const sizes: Record<string, number> = { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+        for (const v of variants) sizes[v.size] = v.stock;
+        return [p.id, {
+          ...p,
+          createdAt: p.createdAt.toISOString(),
+          updatedAt: p.updatedAt.toISOString(),
+          deletedAt: p.deletedAt?.toISOString() ?? null,
+          category:  p.collectionName || '',
+          collection: { id: p.collectionId, name: p.collectionName ?? '', slug: p.collectionSlug ?? '' },
+          variants,
+          sizes,
+          images:           images.map((img) => img.url),
+          normalizedImages: images,
+        } as unknown as Product];
+      }));
+
+      formatted = pins
+        .map((pin) => {
+          const product = productMap.get(pin.productId);
+          return product ? { id: pin.id, x: pin.x, y: pin.y, product } : null;
+        })
+        .filter((h): h is LookbookHotspotData => h !== null);
+    }
+
+    const { redis } = await import('@/lib/redis');
+    await redis.set(CACHE_KEY, { hotspots: formatted }, { ex: 600 }).catch(() => {});
+
+    return formatted;
+  } catch (e) {
+    console.warn('DB error fetching Haveli hotspots (fallback to empty):', (e as Error).message);
+    return [];
+  }
+}
+
 export default async function Page() {
-  const [products, designConfig, newArrivals, bestsellers, featured, collections, testimonials] = await Promise.all([
+  const [products, designConfig, newArrivals, bestsellers, featured, collections, testimonials, haveliHotspots] = await Promise.all([
     getProducts(),
     getDesignConfig(),
     getFlaggedProducts('new-arrivals'),
@@ -349,6 +439,7 @@ export default async function Page() {
     getFlaggedProducts('featured'),
     getHomeCollections(),
     getHomeTestimonials(),
+    getHomeHaveliHotspots(),
   ]);
   return (
     <HomeClient
@@ -359,6 +450,7 @@ export default async function Page() {
       featured={featured}
       collections={collections}
       testimonials={testimonials}
+      haveliHotspots={haveliHotspots}
     />
   );
 }

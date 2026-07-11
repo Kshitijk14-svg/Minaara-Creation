@@ -31,6 +31,7 @@ export default function HomeClient({
   featured: featuredProp,
   collections: collectionsProp,
   testimonials: testimonialsProp,
+  haveliHotspots: haveliHotspotsProp,
 }: {
   initialProducts: Product[];
   initialDesignConfig: DesignConfig | null;
@@ -39,6 +40,7 @@ export default function HomeClient({
   featured?: Product[];
   collections?: Collection[];
   testimonials?: Testimonial[];
+  haveliHotspots?: LookbookHotspotData[];
 }) {
   const heroRef = useRef<HTMLDivElement>(null);
   const lookbookImgRef = useRef<HTMLDivElement>(null);
@@ -71,13 +73,26 @@ export default function HomeClient({
   const FOOTER = designConfig?.footerContent ?? DEFAULT_FOOTER_CONTENT;
   const ACTIVE_TESTIMONIALS = testimonialsProp ?? [];
 
-  const HOTSPOTS: LookbookHotspotData[] = [
+  const FALLBACK_HOTSPOTS: LookbookHotspotData[] = [
     products[2] ? { id: 'h1', x: 28, y: 36, product: products[2] } : null,
     products[1] ? { id: 'h2', x: 54, y: 58, product: products[1] } : null,
     products[0] ? { id: 'h3', x: 72, y: 42, product: products[0] } : null,
   ].filter((h): h is LookbookHotspotData => h !== null);
 
+  const HOTSPOTS = haveliHotspotsProp?.length ? haveliHotspotsProp : FALLBACK_HOTSPOTS;
+  const HAVELI = designConfig?.haveliConfig?.imageUrl ? designConfig.haveliConfig : {
+    imageUrl: '/lookbook-hotspot.webp',
+    heading: 'The Haveli Edit',
+    subheading: '✦ Interactive Lookbook',
+    description: 'Hover over the gold pins to discover signature ensembles set against our heritage estates.',
+  };
+
+  const HERO_SLIDES = designConfig?.heroBanners?.length
+    ? designConfig.heroBanners
+    : [{ url: HERO.imageUrl || '/hero-woman.webp', altText: HERO.headline, linkHref: '' }];
+
   const [loaderVisible, setLoaderVisible] = useState(!hasShownIntroLoader);
+  const [activeHeroSlide, setActiveHeroSlide] = useState(0);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -117,6 +132,13 @@ export default function HomeClient({
     const t = setInterval(() => setActiveTestimonial((v) => (v + 1) % ACTIVE_TESTIMONIALS.length), 4500);
     return () => clearInterval(t);
   }, []);
+
+  // Auto-cycle hero banners
+  useEffect(() => {
+    if (HERO_SLIDES.length <= 1) return;
+    const t = setInterval(() => setActiveHeroSlide((v) => (v + 1) % HERO_SLIDES.length), 6000);
+    return () => clearInterval(t);
+  }, [HERO_SLIDES.length]);
 
   // ── ALL GSAP Scroll Animations ─────────────────────────────────────────────
   useEffect(() => {
@@ -186,7 +208,7 @@ export default function HomeClient({
             opacity: 0, y: -80, scale: 0.97,
             scrollTrigger: { trigger: heroRef.current, start: 'top top', end: 'bottom top', scrub: 1 },
           });
-          gsap.to(heroRef.current.querySelector('img'), {
+          gsap.to(heroRef.current.querySelectorAll('img'), {
             yPercent: 18, ease: 'none',
             scrollTrigger: { trigger: heroRef.current, start: 'top top', end: 'bottom top', scrub: true },
           });
@@ -331,7 +353,28 @@ export default function HomeClient({
       <div style={{ overflowX: 'hidden' }}>
         {/* ── HERO ── */}
         <section ref={heroRef} style={{ position: 'relative', height: '100vh', marginTop: '-64px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <Image src={HERO.imageUrl || '/hero-woman.webp'} alt={HERO.headline} fill className="object-cover object-center" priority sizes="100vw" style={{ opacity: 0.85 }} />
+          {HERO_SLIDES.map((slide, i) => {
+            const isActive = i === activeHeroSlide;
+            const image = (
+              <Image
+                src={slide.url || '/hero-woman.webp'}
+                alt={slide.altText || HERO.headline}
+                fill
+                className="object-cover object-center"
+                priority={i === 0}
+                sizes="100vw"
+                style={{ opacity: isActive ? 0.85 : 0, transition: 'opacity 1.2s ease' }}
+              />
+            );
+            return slide.linkHref ? (
+              <Link key={i} href={slide.linkHref} aria-label={slide.altText || HERO.headline}
+                style={{ position: 'absolute', inset: 0, pointerEvents: isActive ? 'auto' : 'none' }}>
+                {image}
+              </Link>
+            ) : (
+              <div key={i} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>{image}</div>
+            );
+          })}
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(12,8,6,0.72) 0%, rgba(23,57,115,0.25) 55%, rgba(23,57,115,0.08) 100%)' }} />
 
           <div className="hero-content" style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '820px', margin: '0 auto', padding: '0 48px' }}>
@@ -366,6 +409,16 @@ export default function HomeClient({
               </motion.div>
             </motion.div>
           </div>
+
+          {HERO_SLIDES.length > 1 && (
+            <div style={{ position: 'absolute', bottom: '68px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', gap: '8px' }}>
+              {HERO_SLIDES.map((_, i) => (
+                <button key={i} onClick={() => setActiveHeroSlide(i)}
+                  style={{ width: i === activeHeroSlide ? '24px' : '8px', height: '8px', borderRadius: '100px', border: 'none', backgroundColor: i === activeHeroSlide ? '#C4AC70' : 'rgba(244,236,225,0.4)', cursor: 'pointer', transition: 'all 0.3s ease' }}
+                  aria-label={`Hero slide ${i + 1}`} />
+              ))}
+            </div>
+          )}
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4, duration: 1 }} style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)' }}>
             <div className="scroll-line-indicator" />
@@ -524,7 +577,7 @@ export default function HomeClient({
         {/* ── LOOKBOOK BANNER — Parallax ── */}
         <section style={{ position: 'relative', height: '72vh', overflow: 'hidden', backgroundColor: '#1A1A1A' }}>
           <div ref={lookbookImgRef} style={{ position: 'absolute', inset: '-12%', zIndex: 0 }}>
-            <Image src="/lookbook-hotspot.webp" alt="Haveli Edit" fill className="object-cover object-center" sizes="100vw" style={{ opacity: 0.82 }} />
+            <Image src={HAVELI.imageUrl} alt={HAVELI.heading} fill className="object-cover object-center" sizes="100vw" style={{ opacity: 0.82 }} />
           </div>
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(12,8,6,0.9) 0%, transparent 60%)', zIndex: 1 }} />
           <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
@@ -532,9 +585,9 @@ export default function HomeClient({
           </div>
           <div style={{ position: 'absolute', bottom: '48px', zIndex: 20, width: '100%' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
-              <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.22em', color: '#F4ECE1', display: 'block', marginBottom: '10px' }}>✦ Interactive Lookbook</span>
-              <h3 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3.5vw,3rem)', color: '#fff', margin: '0 0 14px', fontWeight: 300 }}>The Haveli Edit</h3>
-              <p className="fade-up" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginBottom: '28px', maxWidth: '400px', lineHeight: 1.65 }}>Hover over the gold pins to discover signature ensembles set against our heritage estates.</p>
+              <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.22em', color: '#F4ECE1', display: 'block', marginBottom: '10px' }}>{HAVELI.subheading}</span>
+              <h3 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3.5vw,3rem)', color: '#fff', margin: '0 0 14px', fontWeight: 300 }}>{HAVELI.heading}</h3>
+              <p className="fade-up" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginBottom: '28px', maxWidth: '400px', lineHeight: 1.65 }}>{HAVELI.description}</p>
               <Link href="/lookbook" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', backgroundColor: '#fff', color: '#1A1A1A', padding: '13px 28px', borderRadius: '4px', textDecoration: 'none', fontWeight: 500 }}>Explore Lookbook →</Link>
             </div>
           </div>

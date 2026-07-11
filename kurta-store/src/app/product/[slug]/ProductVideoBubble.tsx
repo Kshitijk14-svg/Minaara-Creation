@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { localResize } from '@/lib/media';
 
 interface ProductVideoBubbleProps {
@@ -10,33 +10,56 @@ interface ProductVideoBubbleProps {
   productId: string;
 }
 
-const DISMISS_KEY_PREFIX = 'reelVideoDismissed:';
 const MOUNT_DELAY_MS = 1200;
+const BUBBLE_WIDTH = 104;
+const BUBBLE_HEIGHT = 185;
+const EDGE_MARGIN = 24;
+const DRAG_CLICK_THRESHOLD = 5;
 
 export default function ProductVideoBubble({ videoUrl, posterUrl, productId }: ProductVideoBubbleProps) {
   const [mounted, setMounted] = useState(false);
-  const [dismissed, setDismissed] = useState(true); // start true so nothing flashes before the sessionStorage check
   const [expanded, setExpanded] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [dragConstraints, setDragConstraints] = useState({ top: 0, left: 0, right: 0, bottom: 0 });
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hasDraggedRef = useRef(false);
 
   useEffect(() => {
-    try {
-      setDismissed(sessionStorage.getItem(DISMISS_KEY_PREFIX + productId) === '1');
-    } catch {
-      setDismissed(false);
-    }
     const timer = setTimeout(() => setMounted(true), MOUNT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [productId]);
+  }, []);
+
+  useEffect(() => {
+    function updateConstraints() {
+      setDragConstraints({
+        top: -(window.innerHeight - BUBBLE_HEIGHT - 2 * EDGE_MARGIN),
+        left: -(window.innerWidth - BUBBLE_WIDTH - 2 * EDGE_MARGIN),
+        right: 0,
+        bottom: 0,
+      });
+    }
+    updateConstraints();
+    window.addEventListener('resize', updateConstraints);
+    return () => window.removeEventListener('resize', updateConstraints);
+  }, []);
 
   function handleDismiss(e: React.MouseEvent) {
     e.stopPropagation();
     setDismissed(true);
-    try {
-      sessionStorage.setItem(DISMISS_KEY_PREFIX + productId, '1');
-    } catch {
-      // sessionStorage unavailable (private browsing etc.) — dismissal just won't persist across mounts
+  }
+
+  function handleDrag(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
+    if (Math.abs(info.offset.x) > DRAG_CLICK_THRESHOLD || Math.abs(info.offset.y) > DRAG_CLICK_THRESHOLD) {
+      hasDraggedRef.current = true;
     }
+  }
+
+  function handleBubbleClick() {
+    if (hasDraggedRef.current) {
+      hasDraggedRef.current = false;
+      return;
+    }
+    setExpanded(true);
   }
 
   if (!mounted || dismissed) return null;
@@ -49,12 +72,18 @@ export default function ProductVideoBubble({ videoUrl, posterUrl, productId }: P
         initial={{ opacity: 0, scale: 0.85, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        onClick={() => setExpanded(true)}
+        drag
+        dragConstraints={dragConstraints}
+        dragMomentum={false}
+        dragElastic={0.05}
+        whileDrag={{ cursor: 'grabbing' }}
+        onDrag={handleDrag}
+        onClick={handleBubbleClick}
         style={{
           position: 'fixed', bottom: '24px', right: '24px', zIndex: 45,
-          width: '72px', height: '128px', borderRadius: '14px', overflow: 'hidden',
-          cursor: 'pointer', boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
-          border: '2px solid rgba(255,255,255,0.9)',
+          width: `${BUBBLE_WIDTH}px`, height: `${BUBBLE_HEIGHT}px`, borderRadius: '16px', overflow: 'hidden',
+          cursor: 'grab', boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+          border: '2px solid rgba(255,255,255,0.9)', touchAction: 'none',
         }}
       >
         <video
@@ -70,13 +99,14 @@ export default function ProductVideoBubble({ videoUrl, posterUrl, productId }: P
         />
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={handleDismiss}
           aria-label="Dismiss video preview"
           style={{
-            position: 'absolute', top: '4px', right: '4px',
-            width: '20px', height: '20px', borderRadius: '50%',
+            position: 'absolute', top: '6px', right: '6px',
+            width: '24px', height: '24px', borderRadius: '50%',
             background: 'rgba(0,0,0,0.55)', border: 'none',
-            color: '#fff', fontSize: '13px', lineHeight: 1,
+            color: '#fff', fontSize: '15px', lineHeight: 1,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 0,
           }}
