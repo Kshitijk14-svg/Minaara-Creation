@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { trackPurchase } from '@/lib/analytics';
+import { localResize } from '@/lib/media';
 import type { Order, CartItem } from '@/types/schema';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€' };
@@ -76,7 +77,7 @@ export default function OrderSuccessClient({ order }: { order: Order }) {
               <div key={item.id} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                 {item.imageUrl && (
                   <div style={{ width: '56px', height: '70px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--color-brand-blush)', flexShrink: 0 }}>
-                    <img src={item.imageUrl} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={localResize(item.imageUrl, 120)} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 )}
                 <div style={{ flex: 1 }}>

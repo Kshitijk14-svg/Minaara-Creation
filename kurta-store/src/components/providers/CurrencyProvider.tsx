@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import type { Currency, CurrencyRates } from '@/types/schema';
 
 interface CurrencyContextValue {
@@ -133,8 +133,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     [rates, currency],
   );
 
+  const value = useMemo<CurrencyContextValue>(
+    () => ({ currency, setCurrency, convertPrice, rates, isLoading }),
+    [currency, setCurrency, convertPrice, rates, isLoading],
+  );
+
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, convertPrice, rates, isLoading }}>
+    <CurrencyContext.Provider value={value}>
       {children}
     </CurrencyContext.Provider>
   );

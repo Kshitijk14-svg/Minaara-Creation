@@ -22,6 +22,9 @@ async function getProductBySlug(slug: string): Promise<Product | null> {
         description: products.description, priceINR: products.priceINR,
         compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
         isActive: products.isActive, isFeatured: products.isFeatured,
+        isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
+        newArrivalUntil: products.newArrivalUntil,
+        reelVideoUrl: products.reelVideoUrl, reelVideoPosterUrl: products.reelVideoPosterUrl,
         createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
         collectionName: collections.name, collectionSlug: collections.slug,
       })
@@ -52,6 +55,7 @@ async function getProductBySlug(slug: string): Promise<Product | null> {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       deletedAt: row.deletedAt?.toISOString() ?? null,
+      newArrivalUntil: row.newArrivalUntil?.toISOString() ?? null,
       category: row.collectionName || '',
       collection: { id: row.collectionId, name: row.collectionName ?? '', slug: row.collectionSlug ?? '' },
       variants: varRows,

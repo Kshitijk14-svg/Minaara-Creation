@@ -35,6 +35,11 @@
   --glass-border: rgba(255, 255, 255, 0.45);
   --glass-shadow: 0 8px 32px 0 rgba(15, 42, 91, 0.06);
 
+  /* Admin — solid surfaces (non-glass) */
+  --admin-card-bg: #FFFFFF;
+  --admin-card-border: rgba(230, 226, 216, 0.8);
+  --admin-card-shadow: 0 8px 24px rgba(15, 42, 91, 0.06);
+
   /* Typography */
   --font-display: 'Cormorant Garamond', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
@@ -978,6 +983,11 @@ input:checked+.toggle-slider::before {
   --glass-bg: rgba(252, 248, 248, 0.6);
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-shadow: 0 8px 32px 0 rgba(61, 35, 45, 0.05);
+
+  /* Admin — solid surfaces */
+  --admin-card-bg: #FFFFFF;
+  --admin-card-border: rgba(232, 211, 220, 0.8);
+  --admin-card-shadow: 0 8px 24px rgba(61, 35, 45, 0.06);
 }
 
 .theme-ivory-gold {
@@ -998,6 +1008,11 @@ input:checked+.toggle-slider::before {
   --glass-bg: rgba(252, 250, 248, 0.6);
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-shadow: 0 8px 32px 0 rgba(44, 37, 25, 0.05);
+
+  /* Admin — solid surfaces */
+  --admin-card-bg: #FFFFFF;
+  --admin-card-border: rgba(234, 227, 210, 0.8);
+  --admin-card-shadow: 0 8px 24px rgba(44, 37, 25, 0.06);
 }
 
 .theme-midnight-rose {
@@ -1018,6 +1033,11 @@ input:checked+.toggle-slider::before {
   --glass-bg: rgba(20, 15, 18, 0.65);
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+
+  /* Admin — solid surfaces (dark) */
+  --admin-card-bg: #1C171A;
+  --admin-card-border: rgba(255, 255, 255, 0.1);
+  --admin-card-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 .theme-sage-green {
@@ -1038,6 +1058,11 @@ input:checked+.toggle-slider::before {
   --glass-bg: rgba(247, 250, 248, 0.6);
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-shadow: 0 8px 32px 0 rgba(24, 44, 32, 0.05);
+
+  /* Admin — solid surfaces */
+  --admin-card-bg: #FFFFFF;
+  --admin-card-border: rgba(213, 223, 215, 0.8);
+  --admin-card-shadow: 0 8px 24px rgba(24, 44, 32, 0.06);
 }
 
 /* ─────────────────────────────────────────────────────────────

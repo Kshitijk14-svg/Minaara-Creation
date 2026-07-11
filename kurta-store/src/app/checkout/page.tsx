@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
+import { localResize } from '@/lib/media';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€' };
 
@@ -311,7 +312,7 @@ export default function CheckoutPage() {
                   {items.map((item) => (
                     <div key={`${item.productId}-${item.size}`} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                       <div style={{ width: '48px', height: '60px', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--color-brand-blush)', flexShrink: 0 }}>
-                        <img src={item.imageUrl || '/prod-bestseller.webp'} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={localResize(item.imageUrl || '/prod-bestseller.webp', 120)} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 500, color: 'var(--color-brand-charcoal)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>

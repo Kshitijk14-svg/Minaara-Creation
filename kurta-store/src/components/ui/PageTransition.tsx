@@ -54,6 +54,19 @@ export function PageTransition() {
     }
 
     void animate();
+
+    // Recalculate ScrollTrigger sizes/offsets as soon as the new route's DOM
+    // has painted — independent of the curtain animation's own ~1.15s duration
+    // above, so this can't land ~1s late, after the user has already scrolled
+    // into a pinned section on the new page.
+    (async () => {
+      const { ScrollTrigger } = await import('gsap/ScrollTrigger');
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          ScrollTrigger.refresh();
+        });
+      });
+    })();
   }, [pathname]);
 
   return (

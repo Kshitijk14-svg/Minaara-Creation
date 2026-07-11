@@ -7,7 +7,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { SizeGuideModal } from '@/components/ui/SizeGuideModal';
+import ProductVideoBubble from './ProductVideoBubble';
+import { WishlistHeart } from '@/components/ui/WishlistHeart';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics';
+import { localResize } from '@/lib/media';
 import type { Product, SizeLabel } from '@/types/schema';
 
 const SIZE_ORDER: SizeLabel[] = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -50,6 +53,14 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const totalStock = selectedSize ? (product.sizes[selectedSize] ?? 0) : null;
   const isOnSale   = product.compareAtPriceINR && product.compareAtPriceINR > product.priceINR;
 
+  const next = useCallback(() => setSelectedImage((i) => (i + 1) % images.length), [images.length]);
+  const prev = useCallback(() => setSelectedImage((i) => (i - 1 + images.length) % images.length), [images.length]);
+
+  const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
+    if (info.offset.x <= -60) next();
+    else if (info.offset.x >= 60) prev();
+  };
+
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingTop: '40px', paddingBottom: '80px' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
@@ -74,24 +85,62 @@ export default function ProductDetailClient({ product }: { product: Product }) {
           {/* ── LEFT: Image Gallery ─────────────────────────────────────────── */}
           <div>
             {/* Main Image */}
-            <motion.div
-              key={selectedImage}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.35 }}
-              style={{ position: 'relative', width: '100%', aspectRatio: '3/4', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'var(--color-brand-blush)' }}
-            >
-              <img
-                src={images[selectedImage]}
-                alt={`${product.title} — view ${selectedImage + 1}`}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              {isOnSale && (
-                <div style={{ position: 'absolute', top: '16px', left: '16px', backgroundColor: 'var(--color-brand-charcoal)', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Sale
-                </div>
+            <div style={{ position: 'relative' }}>
+              <motion.div
+                key={selectedImage}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.35 }}
+                drag={images.length > 1 ? 'x' : false}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.2}
+                onDragEnd={handleDragEnd}
+                style={{ position: 'relative', width: '100%', aspectRatio: '3/4', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'var(--color-brand-blush)', touchAction: 'pan-y' }}
+              >
+                <img
+                  src={localResize(images[selectedImage], 1000)}
+                  alt={`${product.title} — view ${selectedImage + 1}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                  draggable={false}
+                />
+                {isOnSale && (
+                  <div style={{ position: 'absolute', top: '16px', left: '16px', backgroundColor: 'var(--color-brand-charcoal)', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                    Sale
+                  </div>
+                )}
+              </motion.div>
+
+              {images.length > 1 && (
+                <>
+                  <button
+                    onClick={prev}
+                    aria-label="Previous image"
+                    style={{
+                      position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
+                      width: '40px', height: '40px', borderRadius: '50%', border: 'none',
+                      backgroundColor: 'rgba(250,248,245,0.85)', color: 'var(--color-brand-charcoal)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '18px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                    }}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    onClick={next}
+                    aria-label="Next image"
+                    style={{
+                      position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                      width: '40px', height: '40px', borderRadius: '50%', border: 'none',
+                      backgroundColor: 'rgba(250,248,245,0.85)', color: 'var(--color-brand-charcoal)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '18px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                    }}
+                  >
+                    ›
+                  </button>
+                </>
               )}
-            </motion.div>
+            </div>
 
             {/* Thumbnails */}
             {images.length > 1 && (
@@ -106,7 +155,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                       cursor: 'pointer', padding: 0, background: 'none', transition: 'border-color 0.2s',
                     }}
                   >
-                    <img src={url} alt={`View ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={localResize(url, 160)} alt={`View ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </button>
                 ))}
               </div>
@@ -257,6 +306,18 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               >
                 View Bag
               </Link>
+              <WishlistHeart
+                item={{
+                  productId: product.id, slug: product.slug, title: product.title,
+                  imageUrl: images[0] ?? '', priceINR: product.priceINR,
+                  compareAtPriceINR: product.compareAtPriceINR,
+                }}
+                size={20}
+                style={{
+                  width: '58px', height: '58px', border: '1px solid var(--color-brand-mist)', borderRadius: '4px',
+                  flexShrink: 0,
+                }}
+              />
             </div>
 
             {/* WhatsApp Fallback */}
@@ -296,6 +357,14 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       </div>
 
       <SizeGuideModal isOpen={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} />
+
+      {product.reelVideoUrl && (
+        <ProductVideoBubble
+          videoUrl={product.reelVideoUrl}
+          posterUrl={product.reelVideoPosterUrl}
+          productId={product.id}
+        />
+      )}
     </main>
   );
 }

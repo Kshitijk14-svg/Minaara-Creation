@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useReducer,
   useCallback,
+  useMemo,
 } from 'react';
 import type { CartItem } from '@/types/schema';
 
@@ -140,16 +141,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'CLEAR' });
   }, []);
 
-  const totalItems = state.items.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotalINR = state.items.reduce((acc, item) => acc + item.priceINR * item.quantity, 0);
+  // Memoize so consumers (Navbar, product cards, modals…) only re-render when
+  // the cart actually changes, not on every provider render. Callbacks are
+  // already stable via useCallback.
+  const value = useMemo<CartContextValue>(() => {
+    const totalItems  = state.items.reduce((acc, item) => acc + item.quantity, 0);
+    const subtotalINR = state.items.reduce((acc, item) => acc + item.priceINR * item.quantity, 0);
+    return { items: state.items, addItem, removeItem, updateQuantity, clear, totalItems, subtotalINR };
+  }, [state.items, addItem, removeItem, updateQuantity, clear]);
 
-  return (
-    <CartContext.Provider
-      value={{ items: state.items, addItem, removeItem, updateQuantity, clear, totalItems, subtotalINR }}
-    >
-      {children}
-    </CartContext.Provider>
-  );
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart(): CartContextValue {

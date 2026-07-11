@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/components/providers/CartProvider';
+import { useWishlist } from '@/components/providers/WishlistProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { MagneticLink } from '@/components/ui/MagneticLink';
 import { SearchBar } from '@/components/ui/SearchBar';
@@ -37,6 +38,7 @@ export function Navbar({ session }: NavbarProps) {
   const isHome = pathname === '/';
 
   const { items } = useCart();
+  const { count: wishlistCount } = useWishlist();
   const { currency, setCurrency } = useCurrency();
   const cartCount = items.reduce((s, i) => s + i.quantity, 0);
 
@@ -238,6 +240,22 @@ export function Navbar({ session }: NavbarProps) {
             >
               <UserIcon />
             </Link>
+
+            <MagneticLink as="div">
+              <Link href="/wishlist" style={{ textDecoration: 'none' }} className="text-[10px] uppercase tracking-[0.14em] text-[#1A1A1A] opacity-65 hover:opacity-100 font-body font-medium flex items-center gap-2 transition-opacity">
+                Wishlist
+                {wishlistCount > 0 && (
+                  <motion.span
+                    key={wishlistCount}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="w-4 h-4 md:w-[18px] md:h-[18px] rounded-full bg-[#8C6F63] text-white text-[9px] flex items-center justify-center font-mono font-bold"
+                  >
+                    {wishlistCount}
+                  </motion.span>
+                )}
+              </Link>
+            </MagneticLink>
 
             <MagneticLink as="div">
               <Link href="/cart" style={{ textDecoration: 'none' }} className="text-[10px] uppercase tracking-[0.14em] text-[#1A1A1A] opacity-65 hover:opacity-100 font-body font-medium flex items-center gap-2 transition-opacity">

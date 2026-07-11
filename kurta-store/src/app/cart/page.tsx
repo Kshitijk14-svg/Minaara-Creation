@@ -1,14 +1,77 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
+import { localResize } from '@/lib/media';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, subtotalINR } = useCart();
   const { currency, convertPrice } = useCurrency();
+
+  // Live stock check — variant ids are regenerated on every admin PATCH, so
+  // stale ids in a cart must degrade to "unavailable" rather than crash.
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
+  const [adjustedNotice, setAdjustedNotice] = useState<Record<string, boolean>>({});
+  const cappedRef = useRef<Set<string>>(new Set());
+
+  const variantIdsKey = useMemo(
+    () => Array.from(new Set(items.map((i) => i.variantId).filter((id) => UUID_RE.test(id)))).join(','),
+    [items],
+  );
+
+  const fetchStocks = useCallback(async () => {
+    const variantIds = variantIdsKey ? variantIdsKey.split(',') : [];
+    if (variantIds.length === 0) { setStockMap({}); return; }
+    try {
+      const res = await fetch('/api/products/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantIds }),
+      });
+      if (!res.ok) return;
+      const { stocks } = await res.json();
+      setStockMap(stocks || {});
+    } catch {
+      // Network error — keep last known stock map rather than blocking checkout
+    }
+  }, [variantIdsKey]);
+
+  useEffect(() => {
+    fetchStocks();
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchStocks(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [fetchStocks]);
+
+  // Auto-cap quantities that exceed live stock (once per stock refresh)
+  useEffect(() => {
+    for (const item of items) {
+      if (!UUID_RE.test(item.variantId)) continue;
+      const stock = stockMap[item.variantId];
+      if (stock === undefined) continue;
+      const key = `${item.variantId}:${stock}`;
+      if (stock > 0 && item.quantity > stock && !cappedRef.current.has(key)) {
+        cappedRef.current.add(key);
+        updateQuantity(item.productId, item.size, stock);
+        setAdjustedNotice((prev) => ({ ...prev, [item.variantId]: true }));
+      }
+    }
+  }, [items, stockMap, updateQuantity]);
+
+  function stockFor(variantId: string): number | null {
+    if (!UUID_RE.test(variantId)) return null;
+    return stockMap[variantId] ?? null;
+  }
+
+  const hasBlockedItems = items.some((item) => {
+    const stock = stockFor(item.variantId);
+    return stock !== null && stock <= 0;
+  });
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -174,10 +237,13 @@ export default function CartPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12" style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '32px' }}>
               
               {/* Left Column: Cart Items */}
-              <div className="lg:col-span-8" style={{ gridColumn: 'span 12', '@media (min-width: 1024px)': { gridColumn: 'span 8' } } as any}>
+              <div className="cart-left-col lg:col-span-8">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <AnimatePresence>
-                    {items.map((item) => (
+                    {items.map((item) => {
+                      const stock = stockFor(item.variantId);
+                      const outOfStock = stock !== null && stock <= 0;
+                      return (
                       <motion.div
                         key={`${item.productId}-${item.size}`}
                         layout
@@ -194,7 +260,8 @@ export default function CartPage() {
                           WebkitBackdropFilter: 'blur(20px)',
                           borderRadius: '16px',
                           border: '1px solid var(--glass-border)',
-                          boxShadow: 'var(--glass-shadow)'
+                          boxShadow: 'var(--glass-shadow)',
+                          opacity: outOfStock ? 0.55 : 1,
                         }}
                       >
                         {/* Product Image */}
@@ -209,8 +276,8 @@ export default function CartPage() {
                             flexShrink: 0
                           }}
                         >
-                          <img 
-                            src={item.imageUrl || '/prod-bestseller.webp'} 
+                          <img
+                            src={localResize(item.imageUrl || '/prod-bestseller.webp', 300)}
                             alt={item.title}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
@@ -258,32 +325,44 @@ export default function CartPage() {
                             >
                               Size: <span style={{ fontWeight: 600, color: 'var(--color-brand-charcoal)' }}>{item.size}</span>
                             </p>
+
+                            {outOfStock ? (
+                              <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: '#C0392B', fontWeight: 600, marginTop: '8px', marginBottom: 0 }}>
+                                Out of stock — remove to checkout
+                              </p>
+                            ) : adjustedNotice[item.variantId] && (
+                              <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-brand-gold)', fontWeight: 600, marginTop: '8px', marginBottom: 0 }}>
+                                Only {stock} left — quantity adjusted
+                              </p>
+                            )}
                           </div>
 
                           {/* Controls (Quantity + Delete) */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
                             {/* Quantity Adjustment Pill */}
-                            <div 
-                              style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                border: '1px solid var(--glass-border)', 
-                                borderRadius: '100px', 
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '100px',
                                 padding: '4px',
                                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
                                 backdropFilter: 'blur(8px)',
                                 WebkitBackdropFilter: 'blur(8px)',
+                                opacity: outOfStock ? 0.4 : 1,
                               }}
                             >
                               <button
                                 onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1)}
+                                disabled={outOfStock}
                                 style={{
                                   border: 'none',
                                   background: 'none',
                                   width: '28px',
                                   height: '28px',
                                   borderRadius: '50%',
-                                  cursor: 'pointer',
+                                  cursor: outOfStock ? 'not-allowed' : 'pointer',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -296,12 +375,12 @@ export default function CartPage() {
                               >
                                 ─
                               </button>
-                              
-                              <span 
-                                style={{ 
-                                  padding: '0 12px', 
-                                  fontFamily: 'var(--font-mono)', 
-                                  fontSize: '13px', 
+
+                              <span
+                                style={{
+                                  padding: '0 12px',
+                                  fontFamily: 'var(--font-mono)',
+                                  fontSize: '13px',
                                   fontWeight: 500,
                                   color: 'var(--color-brand-charcoal)',
                                   minWidth: '24px',
@@ -313,13 +392,14 @@ export default function CartPage() {
 
                               <button
                                 onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1)}
+                                disabled={outOfStock || (stock !== null && item.quantity >= stock)}
                                 style={{
                                   border: 'none',
                                   background: 'none',
                                   width: '28px',
                                   height: '28px',
                                   borderRadius: '50%',
-                                  cursor: 'pointer',
+                                  cursor: outOfStock ? 'not-allowed' : 'pointer',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -361,13 +441,14 @@ export default function CartPage() {
                           </div>
                         </div>
                       </motion.div>
-                    ))}
+                      );
+                    })}
                   </AnimatePresence>
                 </div>
               </div>
 
               {/* Right Column: Order Summary Card */}
-              <div className="lg:col-span-4" style={{ gridColumn: 'span 12', '@media (min-width: 1024px)': { gridColumn: 'span 4' } } as any}>
+              <div className="cart-right-col lg:col-span-4">
                 <div 
                   style={{ 
                     backgroundColor: 'var(--glass-bg)', 
@@ -533,29 +614,59 @@ export default function CartPage() {
                   </div>
 
                   {/* Checkout CTA */}
-                  <Link
-                    href="/checkout"
-                    className="btn-liquid"
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '18px 24px',
-                      backgroundColor: 'var(--color-brand-charcoal)',
-                      color: '#ffffff',
-                      borderRadius: '4px',
-                      border: 'none',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.2em',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.3s',
-                      textDecoration: 'none',
-                      textAlign: 'center'
-                    }}
-                  >
-                    Proceed to Checkout
-                  </Link>
+                  {hasBlockedItems ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '18px 24px',
+                          backgroundColor: 'var(--color-brand-charcoal)',
+                          color: '#ffffff',
+                          borderRadius: '4px',
+                          border: 'none',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.2em',
+                          opacity: 0.4,
+                          cursor: 'not-allowed',
+                          textAlign: 'center'
+                        }}
+                      >
+                        Proceed to Checkout
+                      </button>
+                      <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#C0392B', fontFamily: 'var(--font-body)', textAlign: 'center' }}>
+                        Remove out-of-stock items to continue
+                      </p>
+                    </>
+                  ) : (
+                    <Link
+                      href="/checkout"
+                      className="btn-liquid"
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '18px 24px',
+                        backgroundColor: 'var(--color-brand-charcoal)',
+                        color: '#ffffff',
+                        borderRadius: '4px',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.2em',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.3s',
+                        textDecoration: 'none',
+                        textAlign: 'center'
+                      }}
+                    >
+                      Proceed to Checkout
+                    </Link>
+                  )}
 
                   {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && (
                     <a
@@ -594,6 +705,22 @@ export default function CartPage() {
           )}
         </AnimatePresence>
 
+        <style>{`
+          .cart-left-col {
+            grid-column: span 12;
+          }
+          .cart-right-col {
+            grid-column: span 12;
+          }
+          @media (min-width: 1024px) {
+            .cart-left-col {
+              grid-column: span 8;
+            }
+            .cart-right-col {
+              grid-column: span 4;
+            }
+          }
+        `}</style>
       </div>
     </main>
   );

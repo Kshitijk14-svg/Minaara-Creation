@@ -21,6 +21,8 @@ async function getData(slug: string): Promise<{ collection: Collection; products
       description: products.description, priceINR: products.priceINR,
       compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
       isActive: products.isActive, isFeatured: products.isFeatured,
+      isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
+      newArrivalUntil: products.newArrivalUntil,
       createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
     })
       .from(products)
@@ -54,6 +56,7 @@ async function getData(slug: string): Promise<{ collection: Collection; products
         createdAt: p.createdAt.toISOString(),
         updatedAt: p.updatedAt.toISOString(),
         deletedAt: p.deletedAt?.toISOString() ?? null,
+        newArrivalUntil: p.newArrivalUntil?.toISOString() ?? null,
         category: collRow.name,
         collection: { id: collRow.id, name: collRow.name, slug: collRow.slug },
         variants,

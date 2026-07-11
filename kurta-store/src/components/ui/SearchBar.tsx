@@ -227,7 +227,7 @@ export function SearchBar({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                         {results.map((p) => (
                           <Link
                             key={p.id}
-                            href={`/product/${p.id}`}
+                            href={`/product/${p.slug ?? p.id}`}
                             onClick={() => handleSelect(p)}
                             style={{ textDecoration: 'none', display: 'block' }}
                           >

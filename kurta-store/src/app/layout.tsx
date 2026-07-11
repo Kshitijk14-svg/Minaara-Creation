@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import { CurrencyProvider } from '@/components/providers/CurrencyProvider';
 import { CartProvider } from '@/components/providers/CartProvider';
+import { WishlistProvider } from '@/components/providers/WishlistProvider';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { Navbar } from '@/components/ui/Navbar';
@@ -22,10 +23,12 @@ async function getActiveTheme(): Promise<string> {
 
   // Redis is the primary source (TTL 1h, invalidated on admin save)
   try {
-    const { redis } = await import('@/lib/redis');
-    const cached = await redis.get<{ activeTheme: string }>(CACHE_KEY);
-    if (cached?.activeTheme) {
-      return cached.activeTheme;
+    const { redis, redisConfigured } = await import('@/lib/redis');
+    if (redisConfigured) {
+      const cached = await redis.get<{ activeTheme: string }>(CACHE_KEY);
+      if (cached?.activeTheme) {
+        return cached.activeTheme;
+      }
     }
   } catch (e) {
     console.error('Redis error in layout:', e);
@@ -174,12 +177,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <CurrencyProvider>
           <CartProvider>
-            {/* Silk Curtain — fires on every route change */}
-            <PageTransition />
-            <Navbar session={session} />
-            <SmoothScrollProvider>
-              {children}
-            </SmoothScrollProvider>
+            <WishlistProvider>
+              {/* Silk Curtain — fires on every route change */}
+              <PageTransition />
+              <Navbar session={session} />
+              <SmoothScrollProvider>
+                {children}
+              </SmoothScrollProvider>
+            </WishlistProvider>
           </CartProvider>
         </CurrencyProvider>
       </body>
