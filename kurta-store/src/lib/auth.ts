@@ -2,8 +2,13 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/db/index";
 import { users, otps } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { eq, desc } from "drizzle-orm";
+import { randomUUID, timingSafeEqual } from "crypto";
+import { redis } from "@/lib/redis";
+
+// Lock verification for an email after too many failed codes (brute-force guard).
+const MAX_OTP_ATTEMPTS = 5;
+const OTP_FAIL_WINDOW_SECS = 15 * 60;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -21,20 +26,50 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const otp   = (credentials.otp as string).trim();
         const name  = credentials.name as string | undefined;
 
-        // Find the most recent OTP for this email + code
+        const failKey = `otp_fail:${email}`;
+
+        // Reject early if this email is locked out from too many bad attempts.
+        try {
+          const fails = await redis.get<number>(failKey);
+          if (typeof fails === 'number' && fails >= MAX_OTP_ATTEMPTS) return null;
+        } catch {
+          // Redis unavailable — the DB checks below still apply.
+        }
+
+        const registerFailure = async () => {
+          try {
+            const n = await redis.incr(failKey);
+            if (n === 1) await redis.expire(failKey, OTP_FAIL_WINDOW_SECS);
+          } catch {
+            // non-fatal
+          }
+        };
+
+        // Load the single most-recent code for this email (send-otp keeps one).
         const [otpRecord] = await db
           .select()
           .from(otps)
-          .where(and(eq(otps.email, email), eq(otps.code, otp)))
+          .where(eq(otps.email, email))
           .orderBy(desc(otps.createdAt))
           .limit(1);
 
-        if (!otpRecord) return null;
-
-        if (otpRecord.expiresAt < new Date()) {
-          await db.delete(otps).where(eq(otps.id, otpRecord.id));
+        if (!otpRecord || otpRecord.expiresAt < new Date()) {
+          if (otpRecord) await db.delete(otps).where(eq(otps.id, otpRecord.id));
+          await registerFailure();
           return null;
         }
+
+        // Constant-time code comparison.
+        const stored = Buffer.from(otpRecord.code);
+        const given  = Buffer.from(otp);
+        const codeMatches = stored.length === given.length && timingSafeEqual(stored, given);
+        if (!codeMatches) {
+          await registerFailure();
+          return null;
+        }
+
+        // Success — clear the failure counter and consume the code.
+        try { await redis.del(failKey); } catch { /* non-fatal */ }
 
         // Upsert user: insert if not exists, no-op on duplicate
         await db

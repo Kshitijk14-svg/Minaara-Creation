@@ -1,28 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
+import { randomInt } from 'crypto';
 import { db } from '@/db/index';
 import { users, otps } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendEmail } from '@/lib/email';
-import { redis } from '@/lib/redis';
+import { redis, redisConfigured } from '@/lib/redis';
+import { MemoryRatelimit, type Limiter } from '@/lib/rate-limit-fallback';
 
-const ratelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(3, '10 m'),
-  prefix: 'otp_rl',
-});
+// Per-email OTP throttle. Falls back to in-memory limiting when Redis is not
+// configured — without this, ratelimit.limit() would throw and 500 the route.
+const ratelimit: Limiter = redisConfigured
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(3, '10 m'),
+      prefix: 'otp_rl',
+    })
+  : new MemoryRatelimit(3, 10 * 60 * 1000, 'otp_rl');
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, type } = await req.json();
-    if (!email) {
-      return NextResponse.json({ error: 'Email required' }, { status: 400 });
+    const body = await req.json();
+    const email: string = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const type: string  = body.type;
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
     if (!type || (type !== 'SIGNIN' && type !== 'SIGNUP')) {
       return NextResponse.json({ error: 'Valid request type (SIGNIN or SIGNUP) is required' }, { status: 400 });
     }
 
-    const { success, reset } = await ratelimit.limit(email.toLowerCase());
+    const { success, reset } = await ratelimit.limit(email);
     if (!success) {
       const retryAfterSecs = Math.ceil((reset - Date.now()) / 1000);
       return NextResponse.json(
@@ -51,9 +59,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const code      = Math.floor(100000 + Math.random() * 900000).toString();
+    // CSPRNG 6-digit code; enforce a single active code per email.
+    const code      = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
+    await db.delete(otps).where(eq(otps.email, email));
     await db.insert(otps).values({ email, code, expiresAt });
 
     const subject = type === 'SIGNUP' ? 'Verify your Minaara account' : 'Your Minaara sign-in code';
@@ -77,19 +87,19 @@ export async function POST(req: NextRequest) {
 
     try {
       await sendEmail({ to: email, subject, html });
-    } catch (mailErr: any) {
+    } catch (mailErr) {
       console.error('Mail send error:', mailErr);
       return NextResponse.json(
-        { error: `Email delivery failed: ${mailErr.message}` },
-        { status: 500 }
+        { error: 'Could not send the verification email. Please try again shortly.' },
+        { status: 502 }
       );
     }
 
     return NextResponse.json({ success: true, message: 'OTP sent successfully' });
-  } catch (error: any) {
+  } catch (error) {
     console.error('send-otp route error:', error);
     return NextResponse.json(
-      { error: error?.message || 'An unexpected error occurred' },
+      { error: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
