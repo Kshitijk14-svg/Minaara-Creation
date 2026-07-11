@@ -10,20 +10,17 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { collections, products } from '@/db/schema';
 import { isAuthorized } from '@/lib/api-auth';
-import {
-  cacheGet, cacheSet, invalidateTags,
-  CacheKeys, CacheTags,
-} from '@/lib/cache';
-import { and, asc, count, eq, isNull } from 'drizzle-orm';
+import { imageUrlSchema } from '@/lib/validators';
+import { invalidateTags, invalidateStorefrontProducts, CacheTags } from '@/lib/cache';
+import { getCollectionsList } from '@/lib/admin-list-queries';
+import { count, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-
-const COLLECTIONS_TTL = 3600;
 
 const CreateCollectionSchema = z.object({
   name:        z.string().min(1).max(100),
   slug:        z.string().min(1).max(100).regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
-  imageUrl:    z.string().url().optional(),
+  imageUrl:    imageUrlSchema.optional(),
   isActive:    z.boolean().optional().default(true),
   sortOrder:   z.number().int().min(0).optional().default(0),
 });
@@ -33,7 +30,7 @@ const UpdateCollectionSchema = z.object({
   name:        z.string().min(1).max(100).optional(),
   slug:        z.string().min(1).max(100).regex(/^[a-z0-9-]+$/).optional(),
   description: z.string().optional(),
-  imageUrl:    z.string().url().nullable().optional(),
+  imageUrl:    imageUrlSchema.nullable().optional(),
   isActive:    z.boolean().optional(),
   sortOrder:   z.number().int().min(0).optional(),
 });
@@ -49,50 +46,20 @@ function serializeCollection(c: any) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const includeInactive  = searchParams.get('includeInactive') === 'true';
+    const includeInactive = searchParams.get('includeInactive') === 'true';
+    const limitParam      = searchParams.get('limit');
+    const cursor          = searchParams.get('cursor') ?? undefined;
+    // Pagination only activates when a caller explicitly passes `limit` — the
+    // default (used by the admin table + product-form dropdown) stays unpaginated.
+    const paginated = limitParam !== null;
+    const limit     = paginated ? Math.min(Math.max(parseInt(limitParam, 10) || 20, 1), 100) : undefined;
 
-    const cacheKey = CacheKeys.collections.list();
-    if (!includeInactive) {
-      const cached = await cacheGet(cacheKey);
-      if (cached) return NextResponse.json(cached);
-    }
-
-    const rows = await db
-      .select({
-        id:          collections.id,
-        name:        collections.name,
-        slug:        collections.slug,
-        description: collections.description,
-        imageUrl:    collections.imageUrl,
-        isActive:    collections.isActive,
-        sortOrder:   collections.sortOrder,
-        createdAt:   collections.createdAt,
-        updatedAt:   collections.updatedAt,
-        productCount: count(products.id),
-      })
-      .from(collections)
-      .leftJoin(products, and(
-        eq(products.collectionId, collections.id),
-        eq(products.isActive, true),
-        isNull(products.deletedAt),
-      ))
-      .where(includeInactive ? undefined : eq(collections.isActive, true))
-      .groupBy(collections.id)
-      .orderBy(asc(collections.sortOrder), asc(collections.name));
-
-    const result = {
-      data:  rows.map(serializeCollection),
-      total: rows.length,
-    };
-
-    if (!includeInactive) {
-      await cacheSet(cacheKey, result, [CacheTags.collections], COLLECTIONS_TTL);
-    }
+    const result = await getCollectionsList({ includeInactive, limit, cursor });
 
     return NextResponse.json(result, {
-      headers: includeInactive
-        ? {}
-        : { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      headers: !paginated && !includeInactive
+        ? { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
+        : {},
     });
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') console.error('[GET /api/collections]', err);
@@ -122,7 +89,9 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     await invalidateTags([CacheTags.collections]);
+    await invalidateStorefrontProducts();
     revalidatePath('/');
+    revalidatePath('/collection');
 
     return NextResponse.json({ collection: serializeCollection(collection) }, { status: 201 });
   } catch (err: any) {
@@ -169,7 +138,9 @@ export async function PATCH(request: NextRequest) {
       .limit(1);
 
     await invalidateTags([CacheTags.collections, CacheTags.collection(id)]);
+    await invalidateStorefrontProducts();
     revalidatePath('/');
+    revalidatePath('/collection');
 
     return NextResponse.json({ collection: serializeCollection(collection) });
   } catch (err: any) {
@@ -210,7 +181,9 @@ export async function DELETE(request: NextRequest) {
     });
 
     await invalidateTags([CacheTags.collections, CacheTags.collection(id)]);
+    await invalidateStorefrontProducts();
     revalidatePath('/');
+    revalidatePath('/collection');
 
     return NextResponse.json({ success: true, message: message! });
   } catch (err: any) {

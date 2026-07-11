@@ -10,7 +10,7 @@ import { db } from '@/db/index';
 import { products, collections, productSizeVariants, productImages } from '@/db/schema';
 import { isAuthorized } from '@/lib/api-auth';
 import {
-  cacheGet, cacheSet, invalidateTags,
+  cacheGet, cacheSet, invalidateTags, invalidateStorefrontProducts,
   CacheKeys, CacheTags,
 } from '@/lib/cache';
 import { and, asc, eq, isNull } from 'drizzle-orm';
@@ -33,9 +33,14 @@ const UpdateProductSchema = z.object({
   category:          z.string().min(1).optional(),
   isActive:          z.boolean().optional(),
   isFeatured:        z.boolean().optional(),
+  isBestseller:      z.boolean().optional(),
+  isNewArrival:      z.boolean().optional(),
+  newArrivalUntil:   z.string().datetime().nullable().optional(),
   variants:          z.array(SizeVariantSchema).optional(),
   sizes:             z.record(z.string(), z.number()).optional(),
   images:            z.any().optional(),
+  reelVideoUrl:       z.string().max(500).nullable().optional(),
+  reelVideoPosterUrl: z.string().max(500).nullable().optional(),
 });
 
 function buildSizesMap(variants: Array<{ size: string; stock: number }>) {
@@ -51,6 +56,9 @@ async function fetchFullProduct(id: string) {
       description: products.description, priceINR: products.priceINR,
       compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
       isActive: products.isActive, isFeatured: products.isFeatured,
+      isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
+      newArrivalUntil: products.newArrivalUntil,
+      reelVideoUrl: products.reelVideoUrl, reelVideoPosterUrl: products.reelVideoPosterUrl,
       createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
       collectionName: collections.name, collectionSlug: collections.slug,
     })
@@ -71,6 +79,7 @@ async function fetchFullProduct(id: string) {
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     deletedAt: p.deletedAt?.toISOString() ?? null,
+    newArrivalUntil: p.newArrivalUntil?.toISOString() ?? null,
     category:  p.collectionName || '',
     collection: { id: p.collectionId, name: p.collectionName, slug: p.collectionSlug },
     sizes:            buildSizesMap(pVariants),
@@ -117,7 +126,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
     }
 
-    const { variants, sizes, images, category, collectionId, ...scalarData } = parsed.data;
+    const { variants, sizes, images, category, collectionId, newArrivalUntil, ...scalarData } = parsed.data;
+    const finalNewArrivalUntil = newArrivalUntil !== undefined
+      ? (newArrivalUntil ? new Date(newArrivalUntil) : null)
+      : undefined;
 
     // Resolve collection
     let finalCollectionId = collectionId;
@@ -189,6 +201,8 @@ export async function PATCH(
       await tx.update(products).set({
         ...scalarData,
         ...(finalCollectionId ? { collectionId: finalCollectionId } : {}),
+        ...(finalNewArrivalUntil !== undefined ? { newArrivalUntil: finalNewArrivalUntil } : {}),
+        ...(scalarData.reelVideoUrl !== undefined ? { reelVideoUpdatedAt: scalarData.reelVideoUrl ? new Date() : null } : {}),
         updatedAt: new Date(),
       }).where(eq(products.id, id));
     });
@@ -196,7 +210,10 @@ export async function PATCH(
     const product = await fetchFullProduct(id);
 
     await invalidateTags([CacheTags.products, CacheTags.product(id)]);
+    await invalidateStorefrontProducts();
     revalidatePath('/');
+    revalidatePath('/collection');
+    if ((product as any)?.slug) revalidatePath(`/product/${(product as any).slug}`);
 
     return NextResponse.json({ product });
   } catch (err: any) {
@@ -219,7 +236,7 @@ export async function DELETE(
     const { id } = await params;
 
     const [existing] = await db
-      .select({ id: products.id })
+      .select({ id: products.id, slug: products.slug })
       .from(products)
       .where(and(eq(products.id, id), isNull(products.deletedAt)))
       .limit(1);
@@ -233,7 +250,10 @@ export async function DELETE(
       .where(eq(products.id, id));
 
     await invalidateTags([CacheTags.products, CacheTags.product(id)]);
+    await invalidateStorefrontProducts();
     revalidatePath('/');
+    revalidatePath('/collection');
+    if (existing.slug) revalidatePath(`/product/${existing.slug}`);
 
     return NextResponse.json({ success: true, message: 'Product deactivated and soft-deleted' });
   } catch (err) {

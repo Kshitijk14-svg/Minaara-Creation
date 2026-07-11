@@ -104,6 +104,46 @@ export async function invalidateTags(tags: string[]): Promise<void> {
   }
 }
 
+// ── Storefront (hand-rolled) caches ───────────────────────────────────────────
+// The home page, collection landing, and design config cache directly via redis
+// (outside the tag system) for build-time resilience. These helpers let mutation
+// routes purge them so edits show up immediately instead of after the TTL.
+
+export const StorefrontKeys = {
+  homeProducts:       'products_list:all:true:20:0',
+  collectionProducts: 'products_list:all:all:100:0',
+  homeNewArrivals:    'products_list:new-arrivals:true:8:0',
+  homeBestsellers:    'products_list:bestsellers:true:8:0',
+  homeFeatured:       'products_list:featured:true:8:0',
+  homeCollections:    'collections_list:home:8:0',
+  homeTestimonials:   'testimonials_list:home',
+} as const;
+
+/** Purge the homepage testimonials cache. Call after any testimonial mutation. */
+export async function invalidateStorefrontTestimonials(): Promise<void> {
+  try {
+    await redis.del(StorefrontKeys.homeTestimonials);
+  } catch {
+    // non-fatal
+  }
+}
+
+/** Purge home + collection-landing product caches. Call after any product/collection mutation. */
+export async function invalidateStorefrontProducts(): Promise<void> {
+  try {
+    await redis.del(
+      StorefrontKeys.homeProducts,
+      StorefrontKeys.collectionProducts,
+      StorefrontKeys.homeNewArrivals,
+      StorefrontKeys.homeBestsellers,
+      StorefrontKeys.homeFeatured,
+      StorefrontKeys.homeCollections,
+    );
+  } catch {
+    // non-fatal
+  }
+}
+
 // ── Cache Key Factories ──────────────────────────────────────────────────────
 // Centralised so key patterns never drift between set and invalidate calls.
 

@@ -8,14 +8,10 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { products, collections, productSizeVariants, productImages } from '@/db/schema';
 import { isAuthorized } from '@/lib/api-auth';
-import {
-  cacheGet, cacheSet, invalidateTags,
-  CacheKeys, CacheTags,
-} from '@/lib/cache';
-import { and, asc, count, desc, eq, inArray, isNull, like, lt } from 'drizzle-orm';
+import { invalidateTags, invalidateStorefrontProducts, CacheTags } from '@/lib/cache';
+import { getProductsList } from '@/lib/admin-list-queries';
+import { asc, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-
-const PRODUCTS_TTL = 600;
 
 const SizeVariantSchema = z.object({
   size:  z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
@@ -32,9 +28,14 @@ const CreateProductSchema = z.object({
   category:          z.string().min(1).optional(),
   isActive:          z.boolean().optional().default(true),
   isFeatured:        z.boolean().optional().default(false),
+  isBestseller:      z.boolean().optional().default(false),
+  isNewArrival:      z.boolean().optional().default(false),
+  newArrivalUntil:   z.string().datetime().nullable().optional(),
   variants:          z.array(SizeVariantSchema).optional(),
   sizes:             z.record(z.string(), z.number()).optional(),
   images:            z.any(),
+  reelVideoUrl:       z.string().max(500).nullable().optional(),
+  reelVideoPosterUrl: z.string().max(500).nullable().optional(),
 });
 
 function buildSizesMap(variants: Array<{ size: string; stock: number }>) {
@@ -46,156 +47,17 @@ function buildSizesMap(variants: Array<{ size: string; stock: number }>) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const cursor         = searchParams.get('cursor') ?? undefined;
-    const limit          = Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 100);
-    const collectionId   = searchParams.get('collectionId') ?? undefined;
-    const collectionSlug = searchParams.get('collection') ?? undefined;
-    const isActiveParam  = searchParams.get('isActive');
-    const isFeatured     = searchParams.get('isFeatured');
-    const search         = searchParams.get('search') ?? undefined;
-
-    const params = new URLSearchParams({
-      cursor: cursor ?? '', limit: String(limit),
-      collectionId: collectionId ?? '', collectionSlug: collectionSlug ?? '',
-      isActive: isActiveParam ?? '', isFeatured: isFeatured ?? '', search: search ?? '',
-    }).toString();
-
-    const cacheKey = CacheKeys.products.list(params);
-    const cached   = await cacheGet(cacheKey);
-    if (cached) return NextResponse.json(cached);
-
-    // Resolve cursor
-    let cursorDate: Date | undefined;
-    if (cursor) {
-      const [ci] = await db
-        .select({ createdAt: products.createdAt })
-        .from(products)
-        .where(eq(products.id, cursor))
-        .limit(1);
-      cursorDate = ci?.createdAt;
-    }
-
-    // Resolve collection slug → id if needed
-    let resolvedCollectionId = collectionId;
-    if (collectionSlug && !resolvedCollectionId) {
-      const [col] = await db
-        .select({ id: collections.id })
-        .from(collections)
-        .where(eq(collections.slug, collectionSlug))
-        .limit(1);
-      resolvedCollectionId = col?.id;
-    }
-
-    const conditions = and(
-      isNull(products.deletedAt),
-      resolvedCollectionId ? eq(products.collectionId, resolvedCollectionId) : undefined,
-      isActiveParam !== null && isActiveParam !== '' ? eq(products.isActive, isActiveParam === 'true') : undefined,
-      isFeatured === 'true' ? eq(products.isFeatured, true) : undefined,
-      search ? like(products.title, `%${search}%`) : undefined,
-      cursorDate ? lt(products.createdAt, cursorDate) : undefined,
-    );
-
-    const countConditions = and(
-      isNull(products.deletedAt),
-      resolvedCollectionId ? eq(products.collectionId, resolvedCollectionId) : undefined,
-      isActiveParam !== null && isActiveParam !== '' ? eq(products.isActive, isActiveParam === 'true') : undefined,
-      isFeatured === 'true' ? eq(products.isFeatured, true) : undefined,
-      search ? like(products.title, `%${search}%`) : undefined,
-    );
-
-    const [rows, [{ total }]] = await Promise.all([
-      db.select({
-        id:                products.id,
-        title:             products.title,
-        slug:              products.slug,
-        description:       products.description,
-        priceINR:          products.priceINR,
-        compareAtPriceINR: products.compareAtPriceINR,
-        collectionId:      products.collectionId,
-        isActive:          products.isActive,
-        isFeatured:        products.isFeatured,
-        createdAt:         products.createdAt,
-        updatedAt:         products.updatedAt,
-        deletedAt:         products.deletedAt,
-        collectionName:    collections.name,
-        collectionSlug:    collections.slug,
-      })
-        .from(products)
-        .leftJoin(collections, eq(products.collectionId, collections.id))
-        .where(conditions)
-        .orderBy(desc(products.createdAt))
-        .limit(limit + 1),
-      db.select({ total: count() }).from(products).where(countConditions),
-    ]);
-
-    const hasMore    = rows.length > limit;
-    const page       = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? page[page.length - 1].id : null;
-
-    // Fetch variants + images for the page
-    const pageIds = page.map((p) => p.id);
-    const variantMap = new Map<string, Array<{ id: string; productId: string; size: string; stock: number }>>();
-    const imageMap   = new Map<string, Array<{ id: string; productId: string; url: string; altText: string | null; sortOrder: number }>>();
-
-    if (pageIds.length > 0) {
-      const [varRows, imgRows] = await Promise.all([
-        db.select({
-          id: productSizeVariants.id,
-          productId: productSizeVariants.productId,
-          size: productSizeVariants.size,
-          stock: productSizeVariants.stock,
-        })
-          .from(productSizeVariants)
-          .where(inArray(productSizeVariants.productId, pageIds))
-          .orderBy(asc(productSizeVariants.size)),
-        db.select({
-          id: productImages.id,
-          productId: productImages.productId,
-          url: productImages.url,
-          altText: productImages.altText,
-          sortOrder: productImages.sortOrder,
-        })
-          .from(productImages)
-          .where(inArray(productImages.productId, pageIds))
-          .orderBy(asc(productImages.sortOrder)),
-      ]);
-
-      for (const v of varRows) {
-        if (!variantMap.has(v.productId)) variantMap.set(v.productId, []);
-        variantMap.get(v.productId)!.push(v);
-      }
-      for (const img of imgRows) {
-        if (!imageMap.has(img.productId)) imageMap.set(img.productId, []);
-        imageMap.get(img.productId)!.push(img);
-      }
-    }
-
-    const result = {
-      data: page.map((p) => {
-        const variants = variantMap.get(p.id) ?? [];
-        const images   = imageMap.get(p.id)   ?? [];
-        return {
-          ...p,
-          createdAt: p.createdAt.toISOString(),
-          updatedAt: p.updatedAt.toISOString(),
-          deletedAt: p.deletedAt?.toISOString() ?? null,
-          category:  p.collectionName || '',
-          collection: {
-            id:   p.collectionId,
-            name: p.collectionName,
-            slug: p.collectionSlug,
-          },
-          sizes:            buildSizesMap(variants),
-          variants,
-          images:           images.map((img) => img.url),
-          normalizedImages: images,
-        };
-      }),
-      nextCursor,
-      total,
-    };
-
-    await cacheSet(cacheKey, result, [CacheTags.products], PRODUCTS_TTL);
+    const result = await getProductsList({
+      cursor:         searchParams.get('cursor') ?? undefined,
+      limit:          Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 100),
+      collectionId:   searchParams.get('collectionId') ?? undefined,
+      collectionSlug: searchParams.get('collection') ?? undefined,
+      isActiveParam:  searchParams.get('isActive'),
+      isFeatured:     searchParams.get('isFeatured'),
+      isBestseller:   searchParams.get('isBestseller'),
+      isNewArrival:   searchParams.get('isNewArrival'),
+      search:         searchParams.get('search') ?? undefined,
+    });
     return NextResponse.json(result, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });
@@ -217,7 +79,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
     }
 
-    const { variants, sizes, images, category, collectionId, ...productData } = parsed.data;
+    const { variants, sizes, images, category, collectionId, newArrivalUntil, ...productData } = parsed.data;
+    const finalNewArrivalUntil = newArrivalUntil ? new Date(newArrivalUntil) : null;
 
     // Resolve collection
     let finalCollectionId = collectionId;
@@ -266,8 +129,10 @@ export async function POST(request: NextRequest) {
       await tx.insert(products).values({
         id,
         ...productData,
-        slug:         finalSlug,
-        collectionId: finalCollectionId!,
+        slug:            finalSlug,
+        collectionId:    finalCollectionId!,
+        newArrivalUntil: finalNewArrivalUntil,
+        reelVideoUpdatedAt: productData.reelVideoUrl ? new Date() : null,
       });
 
       if (finalVariants.length > 0) {
@@ -295,6 +160,9 @@ export async function POST(request: NextRequest) {
         description: products.description, priceINR: products.priceINR,
         compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
         isActive: products.isActive, isFeatured: products.isFeatured,
+        isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
+        newArrivalUntil: products.newArrivalUntil,
+        reelVideoUrl: products.reelVideoUrl, reelVideoPosterUrl: products.reelVideoPosterUrl,
         createdAt: products.createdAt, updatedAt: products.updatedAt,
         collectionName: collections.name, collectionSlug: collections.slug,
       })
@@ -309,7 +177,9 @@ export async function POST(request: NextRequest) {
     ]);
 
     await invalidateTags([CacheTags.products]);
+    await invalidateStorefrontProducts();
     revalidatePath('/');
+    revalidatePath('/collection');
 
     return NextResponse.json(
       {
@@ -317,6 +187,7 @@ export async function POST(request: NextRequest) {
           ...product,
           createdAt: product.createdAt.toISOString(),
           updatedAt: product.updatedAt.toISOString(),
+          newArrivalUntil: product.newArrivalUntil?.toISOString() ?? null,
           category:  product.collectionName || '',
           collection: { id: product.collectionId, name: product.collectionName, slug: product.collectionSlug },
           sizes:            buildSizesMap(pVariants),

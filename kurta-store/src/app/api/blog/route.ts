@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { blogPosts } from '@/db/schema';
 import { isAuthorized, getSession } from '@/lib/api-auth';
+import { imageUrlSchema } from '@/lib/validators';
 import { and, desc, eq, isNotNull } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -11,7 +12,7 @@ const CreatePostSchema = z.object({
   slug:         z.string().min(1).max(255).regex(/^[a-z0-9-]+$/).optional(),
   content:      z.string().min(1),
   excerpt:      z.string().max(500).optional(),
-  coverImageUrl: z.string().url().optional().or(z.literal('')),
+  coverImageUrl: imageUrlSchema.optional().or(z.literal('')),
   isPublished:  z.boolean().optional().default(false),
 });
 

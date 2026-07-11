@@ -3,13 +3,14 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { blogPosts } from '@/db/schema';
 import { isAuthorized } from '@/lib/api-auth';
+import { imageUrlSchema } from '@/lib/validators';
 import { and, eq, isNotNull } from 'drizzle-orm';
 
 const UpdatePostSchema = z.object({
   title:        z.string().min(1).max(255).optional(),
   content:      z.string().min(1).optional(),
   excerpt:      z.string().max(500).optional(),
-  coverImageUrl: z.string().url().optional().or(z.literal('')),
+  coverImageUrl: imageUrlSchema.optional().or(z.literal('')),
   isPublished:  z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
 

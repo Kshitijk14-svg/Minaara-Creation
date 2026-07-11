@@ -9,15 +9,12 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { coupons, couponUsages } from '@/db/schema';
 import { isAuthorized, getSession } from '@/lib/api-auth';
-import {
-  cacheGet, cacheSet, invalidateTags,
-  CacheKeys, CacheTags,
-} from '@/lib/cache';
-import { and, count, desc, eq, gt, like, lt } from 'drizzle-orm';
+import { cacheGet, cacheSet, invalidateTags, CacheKeys, CacheTags } from '@/lib/cache';
+import { getCouponsList } from '@/lib/admin-list-queries';
+import { and, count, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
-const COUPON_TTL      = 300;
-const COUPON_LIST_TTL = 300;
+const COUPON_TTL = 300;
 
 const ValidateCouponSchema = z.object({
   code:        z.string().min(1).transform((s) => s.toUpperCase().trim()),
@@ -176,45 +173,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const cursor    = searchParams.get('cursor') ?? undefined;
-    const limit     = Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 100);
-    const isActive  = searchParams.get('isActive');
-    const search    = searchParams.get('search') ?? undefined;
-
-    const params   = new URLSearchParams({ cursor: cursor ?? '', limit: String(limit), isActive: isActive ?? '', search: search ?? '' }).toString();
-    const cacheKey = CacheKeys.coupons.list(params);
-    const cached   = await cacheGet(cacheKey);
-    if (cached) return NextResponse.json(cached);
-
-    // Resolve cursor
-    let cursorDate: Date | undefined;
-    if (cursor) {
-      const [ci] = await db.select({ createdAt: coupons.createdAt }).from(coupons).where(eq(coupons.id, cursor)).limit(1);
-      cursorDate = ci?.createdAt;
-    }
-
-    const whereConditions = and(
-      isActive !== null && isActive !== '' ? eq(coupons.isActive, isActive === 'true') : undefined,
-      search ? like(coupons.code, `%${search}%`) : undefined,
-      cursorDate ? lt(coupons.createdAt, cursorDate) : undefined,
-    );
-
-    const [rows, [{ total }]] = await Promise.all([
-      db.select().from(coupons).where(whereConditions).orderBy(desc(coupons.createdAt)).limit(limit + 1),
-      db.select({ total: count() }).from(coupons).where(
-        and(
-          isActive !== null && isActive !== '' ? eq(coupons.isActive, isActive === 'true') : undefined,
-          search ? like(coupons.code, `%${search}%`) : undefined,
-        )
-      ),
-    ]);
-
-    const hasMore    = rows.length > limit;
-    const page       = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? page[page.length - 1].id : null;
-
-    const result = { data: page.map(serializeCoupon), nextCursor, total };
-    await cacheSet(cacheKey, result, [CacheTags.coupons], COUPON_LIST_TTL);
+    const result = await getCouponsList({
+      cursor:   searchParams.get('cursor') ?? undefined,
+      limit:    Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 100),
+      isActive: searchParams.get('isActive'),
+      search:   searchParams.get('search') ?? undefined,
+    });
 
     return NextResponse.json(result);
   } catch (err) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { redis } from '@/lib/redis';
+import { redis, redisConfigured } from '@/lib/redis';
 import type { CurrencyRates } from '@/types/schema';
 
 const CACHE_KEY = 'currency_rates';
@@ -14,6 +14,12 @@ const CurrencyRatesSchema = z.object({
 
 // GET /api/currency-rates — returns cached rates from Upstash
 export async function GET() {
+  // Without Redis there is no rate store — report a clean miss so the
+  // client falls back to its bundled defaults instead of treating it as
+  // a server failure.
+  if (!redisConfigured) {
+    return NextResponse.json({ error: 'No cached rates' }, { status: 404 });
+  }
   try {
     const cached = await redis.get<CurrencyRates>(CACHE_KEY);
     if (cached) {
@@ -30,6 +36,9 @@ export async function GET() {
 
 // POST /api/currency-rates — stores fresh rates in Upstash (called from CurrencyProvider)
 export async function POST(request: NextRequest) {
+  if (!redisConfigured) {
+    return NextResponse.json({ success: true, stored: false });
+  }
   try {
     const body: unknown = await request.json();
     const parsed = CurrencyRatesSchema.safeParse(body);
