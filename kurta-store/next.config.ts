@@ -19,7 +19,10 @@ const nextConfig: NextConfig = {
   // sharp is a native addon (prebuilt .node binary) — bundling it (webpack/
   // Turbopack) breaks its CJS/ESM default export interop. Keep it external
   // so Next resolves it via plain Node `require` at runtime instead.
-  serverExternalPackages: ['sharp'],
+  // ffmpeg-static/ffprobe-static resolve their bundled binary paths via
+  // __dirname, which webpack rewrites when bundled — external for the same
+  // reason.
+  serverExternalPackages: ['sharp', 'fluent-ffmpeg', 'ffmpeg-static', 'ffprobe-static'],
   experimental: {
     optimizePackageImports: ['framer-motion', 'gsap'],
   },

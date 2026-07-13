@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
@@ -18,11 +19,33 @@ const SORT_OPTIONS = [
   { value: 'price-desc', label: 'Price: High to Low' },
 ] as const;
 
+const FLAG_FILTERS = {
+  'new-arrivals': (p: Product) => p.isNewArrival,
+  'bestsellers': (p: Product) => p.isBestseller,
+  'featured': (p: Product) => p.isFeatured,
+} as const;
+type FlagFilter = keyof typeof FLAG_FILTERS;
+const FLAG_LABELS: Record<FlagFilter, string> = {
+  'new-arrivals': 'New Arrivals',
+  'bestsellers': 'Bestsellers',
+  'featured': 'Featured Pieces',
+};
+
 export default function CollectionClient({ initialProducts }: { initialProducts: Product[] }) {
   const { addItem } = useCart();
   const { currency, convertPrice } = useCurrency();
+  const searchParams = useSearchParams();
+  const rawFlag = searchParams.get('filter');
+  const initialFlag: FlagFilter | null = rawFlag && rawFlag in FLAG_FILTERS ? (rawFlag as FlagFilter) : null;
+
   const [activeCategory, setActiveCategory] = useState<Category>('All');
+  const [activeFlag, setActiveFlag] = useState<FlagFilter | null>(initialFlag);
   const [sortBy, setSortBy] = useState<string>('newest');
+
+  const selectCategory = useCallback((cat: Category) => {
+    setActiveFlag(null);
+    setActiveCategory(cat);
+  }, []);
 
   // Price formatting helper
   const fmt = useCallback((priceINR: number) => {
@@ -34,7 +57,7 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
   // Filter and sort products on the client side
   const filteredProducts = useMemo(() => {
     return initialProducts
-      .filter((p) => activeCategory === 'All' || p.category === activeCategory)
+      .filter((p) => activeFlag ? FLAG_FILTERS[activeFlag](p) : (activeCategory === 'All' || p.category === activeCategory))
       .sort((a, b) => {
         if (sortBy === 'price-asc') {
           return a.priceINR - b.priceINR;
@@ -45,7 +68,7 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
         // newest (default)
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-  }, [initialProducts, activeCategory, sortBy]);
+  }, [initialProducts, activeCategory, activeFlag, sortBy]);
 
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingBottom: '80px' }}>
@@ -76,20 +99,32 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 48px' }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
 
           {/* Category Tabs */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {activeFlag && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', borderRadius: '100px', backgroundColor: '#8C6F63', color: '#ffffff' }}>
+                {FLAG_LABELS[activeFlag]}
+                <button
+                  onClick={() => setActiveFlag(null)}
+                  aria-label="Clear filter"
+                  style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '12px', lineHeight: 1, padding: 0 }}
+                >
+                  ✕
+                </button>
+              </span>
+            )}
             {CATEGORIES.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
+                onClick={() => selectCategory(cat)}
                 style={{
                   padding: '6px 20px',
                   fontSize: '10px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em',
                   borderRadius: '100px',
-                  border: `1px solid ${activeCategory === cat ? '#8C6F63' : '#E6E2D8'}`,
-                  backgroundColor: activeCategory === cat ? '#8C6F63' : 'transparent',
-                  color: activeCategory === cat ? '#ffffff' : 'rgba(26,26,26,0.6)',
+                  border: `1px solid ${!activeFlag && activeCategory === cat ? '#8C6F63' : '#E6E2D8'}`,
+                  backgroundColor: !activeFlag && activeCategory === cat ? '#8C6F63' : 'transparent',
+                  color: !activeFlag && activeCategory === cat ? '#ffffff' : 'rgba(26,26,26,0.6)',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   outline: 'none'

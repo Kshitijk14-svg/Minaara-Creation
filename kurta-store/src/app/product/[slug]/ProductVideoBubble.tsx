@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
+import Image from 'next/image';
 import { localResize } from '@/lib/media';
+import { useIsMobile } from '@/lib/useIsMobile';
 
 interface ProductVideoBubbleProps {
   videoUrl: string;
@@ -23,6 +25,7 @@ export default function ProductVideoBubble({ videoUrl, posterUrl, productId }: P
   const [dragConstraints, setDragConstraints] = useState({ top: 0, left: 0, right: 0, bottom: 0 });
   const videoRef = useRef<HTMLVideoElement>(null);
   const hasDraggedRef = useRef(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), MOUNT_DELAY_MS);
@@ -72,7 +75,7 @@ export default function ProductVideoBubble({ videoUrl, posterUrl, productId }: P
         initial={{ opacity: 0, scale: 0.85, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        drag
+        drag={isMobile === false}
         dragConstraints={dragConstraints}
         dragMomentum={false}
         dragElastic={0.05}
@@ -82,21 +85,39 @@ export default function ProductVideoBubble({ videoUrl, posterUrl, productId }: P
         style={{
           position: 'fixed', bottom: '24px', right: '24px', zIndex: 45,
           width: `${BUBBLE_WIDTH}px`, height: `${BUBBLE_HEIGHT}px`, borderRadius: '16px', overflow: 'hidden',
-          cursor: 'grab', boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+          cursor: isMobile ? 'pointer' : 'grab', boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
           border: '2px solid rgba(255,255,255,0.9)', touchAction: 'none',
         }}
       >
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          poster={posterSrc}
-          muted
-          loop
-          autoPlay
-          playsInline
-          preload="none"
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-        />
+        {isMobile ? (
+          // Mobile: never fetch/autoplay the clip in the tiny bubble — show the
+          // poster with a play affordance; tapping expands straight to the
+          // modal (below), which is where playback actually begins.
+          <>
+            {posterSrc ? (
+              <Image src={posterSrc} alt="" fill sizes={`${BUBBLE_WIDTH}px`} style={{ objectFit: 'cover', pointerEvents: 'none' }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', backgroundColor: '#000' }} />
+            )}
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+              </div>
+            </div>
+          </>
+        ) : (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            poster={posterSrc}
+            muted
+            loop
+            autoPlay
+            playsInline
+            preload="none"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+          />
+        )}
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}

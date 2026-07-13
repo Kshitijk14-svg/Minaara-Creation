@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { useIsMobile } from '@/lib/useIsMobile';
 
 /**
  * PageTransition — Animation 1: Silk Curtain Wipe
@@ -14,6 +15,7 @@ export function PageTransition() {
   const curtainRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const isFirstRender = useRef(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -26,6 +28,24 @@ export function PageTransition() {
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
+
+    // Mobile: fast simple fade, no GSAP import (curtain sweep + ScrollTrigger
+    // refresh below are both desktop-only costs).
+    if (isMobile) {
+      curtain.style.transition = 'none';
+      curtain.style.clipPath = 'inset(0 0% 0 0)';
+      curtain.style.opacity = '1';
+      const raf = requestAnimationFrame(() => {
+        curtain.style.transition = 'opacity 0.2s ease-out';
+        curtain.style.opacity = '0';
+      });
+      const t = setTimeout(() => {
+        curtain.style.transition = 'none';
+        curtain.style.clipPath = 'inset(0 100% 0 0)';
+        curtain.style.opacity = '1';
+      }, 260);
+      return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+    }
 
     async function animate() {
       const { gsap } = await import('gsap');
@@ -67,7 +87,7 @@ export function PageTransition() {
         });
       });
     })();
-  }, [pathname]);
+  }, [pathname, isMobile]);
 
   return (
     <div

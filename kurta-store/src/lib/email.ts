@@ -75,9 +75,9 @@ function shell(content: string): string {
           <td style="padding:20px 40px;text-align:center;">
             <p style="margin:0;font-size:11px;color:#888;letter-spacing:0.05em;">
               Minaara Creation · Bapu Bazaar, Jaipur 302003, India<br>
-              <a href="https://minaaracreation.com" style="color:#32518c;text-decoration:none;">minaaracreation.com</a>
+              <a href="https://labelminara.com" style="color:#32518c;text-decoration:none;">labelminara.com</a>
               &nbsp;·&nbsp;
-              <a href="mailto:support@minaaracreation.com" style="color:#32518c;text-decoration:none;">support@minaaracreation.com</a>
+              <a href="mailto:support@labelminara.com" style="color:#32518c;text-decoration:none;">support@labelminara.com</a>
             </p>
           </td>
         </tr>
@@ -155,7 +155,7 @@ export function renderOrderConfirmationEmail(order: Order): string {
     ${addrHtml}
 
     <div style="margin-top:32px;text-align:center;">
-      <a href="https://minaaracreation.com/order/success/${order.id}" style="display:inline-block;padding:14px 32px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
+      <a href="https://labelminara.com/order/success/${order.id}" style="display:inline-block;padding:14px 32px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
         View Your Order
       </a>
     </div>
@@ -202,7 +202,7 @@ export function renderLowStockAlertEmail(
       <tbody>${rows}</tbody>
     </table>
     <div style="margin-top:24px;text-align:center;">
-      <a href="https://minaaracreation.com/admin" style="display:inline-block;padding:12px 28px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
+      <a href="https://labelminara.com/admin" style="display:inline-block;padding:12px 28px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
         Open Admin Dashboard
       </a>
     </div>
@@ -248,7 +248,7 @@ export function renderAbandonCartEmail(
       </tr>
     </table>
     <div style="margin-top:28px;text-align:center;">
-      <a href="https://minaaracreation.com/cart" style="display:inline-block;padding:14px 36px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
+      <a href="https://labelminara.com/cart" style="display:inline-block;padding:14px 36px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
         Complete My Order
       </a>
     </div>

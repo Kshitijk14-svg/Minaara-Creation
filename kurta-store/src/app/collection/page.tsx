@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Product } from '@/types/schema';
 import CollectionClient from './CollectionClient';
 
@@ -35,6 +35,7 @@ async function getProducts(): Promise<Product[]> {
         description: products.description, priceINR: products.priceINR,
         compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
         isActive: products.isActive, isFeatured: products.isFeatured,
+        isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
         createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
         collectionName: collections.name, collectionSlug: collections.slug,
       })
@@ -93,5 +94,9 @@ async function getProducts(): Promise<Product[]> {
 
 export default async function CollectionPage() {
   const products = await getProducts();
-  return <CollectionClient initialProducts={products} />;
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#FAF8F5' }} />}>
+      <CollectionClient initialProducts={products} />
+    </Suspense>
+  );
 }

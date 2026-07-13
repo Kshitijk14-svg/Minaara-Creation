@@ -157,8 +157,8 @@ export default function OrderSuccessClient({ order }: { order: Order }) {
 
         <p style={{ marginTop: '32px', textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.45 }}>
           Questions? Reach us at{' '}
-          <a href="mailto:support@minaaracreation.com" style={{ color: 'var(--color-brand-mauve)', textDecoration: 'none' }}>
-            support@minaaracreation.com
+          <a href="mailto:support@labelminara.com" style={{ color: 'var(--color-brand-mauve)', textDecoration: 'none' }}>
+            support@labelminara.com
           </a>
         </p>
       </div>

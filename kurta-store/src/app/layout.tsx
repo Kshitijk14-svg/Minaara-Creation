@@ -122,9 +122,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               "@context": "https://schema.org",
               "@type": "ClothingStore",
               "name": "Minaara Creation",
-              "image": "https://minaaracreation.com/hero-woman.webp",
+              "image": "https://labelminara.com/hero-woman.webp",
               "description": "Premium Indian womenswear, handcrafted kurtas, and luxury ethnic fashion.",
-              "url": "https://minaaracreation.com",
+              "url": "https://labelminara.com",
               "telephone": "+910000000000",
               "address": {
                 "@type": "PostalAddress",

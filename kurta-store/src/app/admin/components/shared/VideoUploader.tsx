@@ -9,7 +9,10 @@ interface VideoUploaderProps {
   onChange: (value: { videoUrl: string | null; posterUrl: string | null }) => void;
 }
 
-const MAX_BYTES = 40 * 1024 * 1024;
+// The server transcodes every accepted upload down to a bounded, compressed
+// output (see /api/upload/video), so this ceiling just guards against
+// absurd uploads — it doesn't dictate the delivered file size.
+const MAX_BYTES = 150 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 60;
 
 // Grabs a frame from the picked video file and encodes it as a webp blob,
@@ -73,7 +76,7 @@ export default function VideoUploader({ videoUrl, posterUrl, onChange }: VideoUp
       return;
     }
     if (file.size > MAX_BYTES) {
-      setUploadError('Video exceeds 40 MB limit');
+      setUploadError(`Video exceeds ${MAX_BYTES / (1024 * 1024)} MB limit`);
       return;
     }
 
@@ -197,7 +200,7 @@ export default function VideoUploader({ videoUrl, posterUrl, onChange }: VideoUp
               padding: '3px 0', cursor: uploading ? 'wait' : 'pointer',
             }}
           >
-            {uploading ? 'Uploading…' : 'Replace'}
+            {uploading ? 'Uploading & compressing…' : 'Replace'}
           </button>
         </div>
       )}
@@ -217,7 +220,7 @@ export default function VideoUploader({ videoUrl, posterUrl, onChange }: VideoUp
       )}
 
       <p style={{ fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--color-brand-charcoal)', opacity: 0.4, margin: '8px 0 0' }}>
-        MP4/MOV · Max 40MB · Shown as a floating preview on the product page
+        MP4/MOV · Max 150MB · Auto-compressed on upload · Shown as a floating preview on the product page
       </p>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

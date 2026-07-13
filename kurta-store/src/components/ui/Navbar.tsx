@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/components/providers/CartProvider';
@@ -9,6 +10,7 @@ import { useWishlist } from '@/components/providers/WishlistProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { MagneticLink } from '@/components/ui/MagneticLink';
 import { SearchBar } from '@/components/ui/SearchBar';
+import { MobileMenu } from '@/components/ui/MobileMenu';
 
 const SearchIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -24,6 +26,14 @@ const UserIcon = () => (
   </svg>
 );
 
+const HamburgerIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="7" x2="21" y2="7"></line>
+    <line x1="3" y1="12" x2="21" y2="12"></line>
+    <line x1="3" y1="17" x2="21" y2="17"></line>
+  </svg>
+);
+
 interface NavbarProps {
   session: any;
 }
@@ -33,6 +43,7 @@ export function Navbar({ session }: NavbarProps) {
   const [scrollDir, setScrollDir] = useState<'up' | 'down'>('up');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const pathname = usePathname();
   const isHome = pathname === '/';
@@ -85,6 +96,11 @@ export function Navbar({ session }: NavbarProps) {
 
           {/* Left Navigation Items */}
           <div className="flex-1 flex items-center gap-4 md:gap-8">
+            <MagneticLink as="div" className="md:hidden">
+              <Link href="/" style={{ textDecoration: 'none' }} className="flex items-center">
+                <Image src="/minaara-logo.jpeg" alt="Minaara" width={40} height={40} style={{ objectFit: 'contain', borderRadius: '4px' }} />
+              </Link>
+            </MagneticLink>
             <div className="hidden md:flex items-center gap-6 md:gap-8">
               {[{ href: '/', label: 'Home' }, { href: '/collection', label: 'Collection' }, { href: '/cart', label: 'Cart' }].map((l) => {
                 const isActive = l.href === '/' ? pathname === '/' : pathname === l.href;
@@ -120,17 +136,43 @@ export function Navbar({ session }: NavbarProps) {
             </div>
           </div>
 
-          {/* Logo Center */}
+          {/* Logo Center (desktop) / Search bar (mobile) */}
           <div className="flex-1 flex justify-center">
-            <MagneticLink as="div">
-              <Link href="/" style={{ textDecoration: 'none' }} className="font-display text-2xl md:text-3xl text-[#1A1A1A] tracking-wider font-light">
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              aria-label="Open search"
+              className="md:hidden flex items-center"
+              style={{
+                width: '100%', gap: '10px',
+                padding: '10px 14px', borderRadius: '100px',
+                border: '1px solid var(--color-brand-mist)', backgroundColor: 'rgba(255,255,255,0.6)',
+                cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <span style={{ color: '#1A1A1A', opacity: 0.45, display: 'flex' }}><SearchIcon /></span>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#1A1A1A', opacity: 0.45, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Search products...
+              </span>
+            </button>
+            <MagneticLink as="div" className="hidden md:block">
+              <Link href="/" style={{ textDecoration: 'none' }} className="font-display text-3xl text-[#1A1A1A] tracking-wider font-light">
                 Minaara Creation
               </Link>
             </MagneticLink>
           </div>
 
           {/* Right Navigation Items */}
-          <div className="flex-1 flex justify-end items-center gap-4 md:gap-6">
+          <div className="flex-1 flex justify-end items-center">
+          <button
+            onClick={() => setIsMenuOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={isMenuOpen}
+            className="md:hidden flex items-center"
+            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px', color: '#1A1A1A', opacity: 0.75 }}
+          >
+            <HamburgerIcon />
+          </button>
+          <div className="hidden md:flex items-center gap-4 md:gap-6">
 
             {/* Custom Currency Dropdown */}
             <div style={{ position: 'relative' }} className="hidden md:block">
@@ -273,9 +315,11 @@ export function Navbar({ session }: NavbarProps) {
               </Link>
             </MagneticLink>
           </div>
+          </div>
         </div>
       </nav>
       <SearchBar isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <MobileMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} session={session} wishlistCount={wishlistCount} cartCount={cartCount} />
     </>
   );
 }

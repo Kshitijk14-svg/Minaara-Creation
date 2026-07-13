@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { LookbookHotspot } from '@/components/ui/LookbookHotspot';
+import { useIsMobile } from '@/lib/useIsMobile';
 import type { Product, DesignConfig, LookbookHotspotData } from '@/types/schema';
 
 // Distribute up to 3 products per panel across 3 fixed positions
@@ -38,14 +39,20 @@ export default function LookbookClient({ products, config }: Props) {
       })),
   }));
 
+  const isMobile = useIsMobile();
+
+  // Desktop: full GSAP parallax + clip-path heading reveal. gsap/ScrollTrigger
+  // are dynamically imported here, so mobile never fetches that chunk.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (isMobile !== false) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     let ctx: { revert: () => void } | null = null;
+    let cancelled = false;
     (async () => {
       const { gsap }         = await import('gsap');
       const { ScrollTrigger } = await import('gsap/ScrollTrigger');
+      if (cancelled) return;
       gsap.registerPlugin(ScrollTrigger);
 
       ctx = gsap.context(() => {
@@ -71,8 +78,34 @@ export default function LookbookClient({ products, config }: Props) {
       });
     })();
 
-    return () => ctx?.revert();
-  }, []);
+    return () => { cancelled = true; ctx?.revert(); };
+  }, [isMobile]);
+
+  // Mobile: no GSAP/Lenis at all. The continuous parallax scrub is dropped
+  // (panels just render statically); the heading gets a one-shot CSS fade
+  // via [data-mobile-fx] in globals.css, driven by a plain IntersectionObserver.
+  useEffect(() => {
+    if (isMobile !== true) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    document.documentElement.setAttribute('data-mobile-fx', '1');
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-visible');
+          io.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -8% 0px' },
+    );
+    document.querySelectorAll('.lookbook-heading').forEach((el) => io.observe(el));
+
+    return () => {
+      document.documentElement.removeAttribute('data-mobile-fx');
+      io.disconnect();
+    };
+  }, [isMobile]);
 
   return (
     <main style={{ backgroundColor: '#0A0A0A', color: '#FAF8F5', minHeight: '100vh' }}>

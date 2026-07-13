@@ -17,6 +17,12 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
+    // Skip smooth-scroll on mobile entirely — Lenis's per-frame rAF/lerp loop
+    // is the single biggest source of scroll jank on phone CPUs; native
+    // scrolling is both cheaper and what touch users expect anyway.
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    if (isMobile) return;
+
     gsap.registerPlugin(ScrollTrigger);
 
     const lenis = new Lenis({

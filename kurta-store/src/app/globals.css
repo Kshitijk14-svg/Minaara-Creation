@@ -931,6 +931,31 @@ input:checked+.toggle-slider::before {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   Mobile scroll reveal (no GSAP) — driven by useMobileScrollFX's
+   IntersectionObserver, which toggles .is-visible. Scoped under
+   [data-mobile-fx] (set only while that hook is mounted) so desktop's
+   GSAP-driven inline styles for the same classes are never fought here.
+   ───────────────────────────────────────────────────────────── */
+[data-mobile-fx] .scroll-heading,
+[data-mobile-fx] .fade-up,
+[data-mobile-fx] .edit-card,
+[data-mobile-fx] .slide-left,
+[data-mobile-fx] .lookbook-heading {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-mobile-fx] .scroll-heading.is-visible,
+[data-mobile-fx] .fade-up.is-visible,
+[data-mobile-fx] .edit-card.is-visible,
+[data-mobile-fx] .slide-left.is-visible,
+[data-mobile-fx] .lookbook-heading.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─────────────────────────────────────────────────────────────
    Scroll Line Indicator (hero)
    ───────────────────────────────────────────────────────────── */
 .scroll-line-indicator {

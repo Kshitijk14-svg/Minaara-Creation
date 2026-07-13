@@ -11,13 +11,22 @@ import { NarrativeLoader } from '@/components/ui/NarrativeLoader';
 import { lenisInstance } from '@/components/providers/SmoothScrollProvider';
 import { LookbookHotspot } from '@/components/ui/LookbookHotspot';
 import { WishlistHeart } from '@/components/ui/WishlistHeart';
-import type { Product, DesignConfig, LookbookHotspotData, SizeLabel, Collection, Testimonial } from '@/types/schema';
+import { Carousel } from '@/components/ui/Carousel';
+import { useIsMobile } from '@/lib/useIsMobile';
+import { useDesktopScrollFX } from '@/app/home-animations/useDesktopScrollFX';
+import { useMobileScrollFX } from '@/app/home-animations/useMobileScrollFX';
+import type { Product, DesignConfig, LookbookHotspotData, SizeLabel, Collection, Testimonial, EditorialStory } from '@/types/schema';
 import {
   DEFAULT_HERO_CONTENT, DEFAULT_USP_ITEMS, DEFAULT_MARQUEE_WORDS,
   DEFAULT_ABOUT_PANELS, DEFAULT_EDITORIAL_STORIES, DEFAULT_STATS, DEFAULT_FOOTER_CONTENT,
 } from '@/lib/design-defaults';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€' };
+
+const VIEW_ALL_LINK_STYLE: React.CSSProperties = {
+  fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em',
+  color: '#8C6F63', textDecoration: 'none', borderBottom: '1px solid #8C6F63', paddingBottom: '2px',
+};
 
 // Module scope (not component state) so the intro splash plays once per SPA
 // session, not on every back-navigation remount of HomeClient.
@@ -51,7 +60,6 @@ export default function HomeClient({
   const hAboutWrapRef = useRef<HTMLDivElement>(null);
   const hAboutTrackRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLElement>(null);
-  const gsapCtxRef = useRef<{ revert: () => void } | null>(null);
   const statsValueRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const products = initialProducts;
@@ -140,181 +148,16 @@ export default function HomeClient({
     return () => clearInterval(t);
   }, [HERO_SLIDES.length]);
 
-  // ── ALL GSAP Scroll Animations ─────────────────────────────────────────────
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    let mm: any = null;
-    let cancelled = false;
-
-    (async () => {
-      const { gsap } = await import('gsap');
-      const { ScrollTrigger } = await import('gsap/ScrollTrigger');
-      // Bail if this effect's cleanup already ran (e.g. the user navigated away
-      // before these dynamic imports resolved) — otherwise this stale callback
-      // still creates a matchMedia context/ScrollTriggers that nothing will ever
-      // revert (gsapCtxRef has already moved on to the next mount by the time
-      // this resolves), leaking pins that stack on top of the next mount's own.
-      if (cancelled) return;
-      gsap.registerPlugin(ScrollTrigger);
-
-      mm = gsap.matchMedia();
-      gsapCtxRef.current = mm;
-
-      // 1. Desktop-only horizontal pinned animations (width >= 1024px)
-      mm.add("(min-width: 1024px)", () => {
-        // Featured Pieces horizontal scroll (pinned)
-        if (hFeatRef.current && hFeatTrackRef.current && hFeatWrapRef.current) {
-          const track = hFeatTrackRef.current;
-          const naturalOverflow = track.scrollWidth - window.innerWidth + 96;
-          if (naturalOverflow > 0) {
-            const getTotal = () => track.scrollWidth - window.innerWidth + 96;
-            gsap.to(track, {
-              x: () => -getTotal(), ease: 'none',
-              scrollTrigger: {
-                trigger: hFeatRef.current, start: 'top top', end: () => `+=${getTotal()}`,
-                scrub: true, pin: true, anticipatePin: 1, invalidateOnRefresh: true,
-              },
-            });
-          } else {
-            hFeatWrapRef.current.style.height = 'auto';
-          }
-        }
-
-        // About Us horizontal scroll (pinned)
-        if (hAboutRef.current && hAboutTrackRef.current && hAboutWrapRef.current) {
-          const track = hAboutTrackRef.current;
-          const naturalOverflow = track.scrollWidth - window.innerWidth + 96;
-          if (naturalOverflow > 0) {
-            const getTotal = () => track.scrollWidth - window.innerWidth + 96;
-            gsap.to(track, {
-              x: () => -getTotal(), ease: 'none',
-              scrollTrigger: {
-                trigger: hAboutRef.current, start: 'top top', end: () => `+=${getTotal()}`,
-                scrub: true, pin: true, anticipatePin: 1, invalidateOnRefresh: true,
-              },
-            });
-          } else {
-            hAboutWrapRef.current.style.height = 'auto';
-          }
-        }
-      });
-
-      // 2. Animations running on all screens (min-width: 0px)
-      mm.add("(min-width: 0px)", () => {
-        // Hero parallax + fade-out
-        if (heroRef.current) {
-          gsap.to(heroRef.current.querySelector('.hero-content'), {
-            opacity: 0, y: -80, scale: 0.97,
-            scrollTrigger: { trigger: heroRef.current, start: 'top top', end: 'bottom top', scrub: 1 },
-          });
-          gsap.to(heroRef.current.querySelectorAll('img'), {
-            yPercent: 18, ease: 'none',
-            scrollTrigger: { trigger: heroRef.current, start: 'top top', end: 'bottom top', scrub: true },
-          });
-        }
-
-        // Lookbook image parallax
-        if (lookbookImgRef.current) {
-          gsap.to(lookbookImgRef.current.querySelector('img'), {
-            yPercent: -14, ease: 'none',
-            scrollTrigger: { trigger: lookbookImgRef.current, start: 'top bottom', end: 'bottom top', scrub: true },
-          });
-        }
-
-        // Universal reveals
-        document.querySelectorAll('.scroll-heading').forEach((el) => {
-          gsap.fromTo(el,
-            { clipPath: 'inset(0 100% 0 0)', opacity: 0 },
-            {
-              clipPath: 'inset(0 0% 0 0)', opacity: 1, duration: 1.1, ease: 'power3.out',
-              scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
-            },
-          );
-        });
-        document.querySelectorAll('.slide-left').forEach((el) => {
-          gsap.fromTo(el, { opacity: 0, x: -70 },
-            {
-              opacity: 1, x: 0, duration: 1, ease: 'power3.out',
-              scrollTrigger: { trigger: el, start: 'top 82%', toggleActions: 'play none none none' }
-            });
-        });
-        document.querySelectorAll('.fade-up').forEach((el) => {
-          gsap.fromTo(el, { opacity: 0, y: 20 },
-            {
-              opacity: 1, y: 0, duration: 1, ease: 'power3.out',
-              scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none none' }
-            });
-        });
-
-        // Editorial cards clip-path unroll
-        const editCards = document.querySelectorAll('.edit-card');
-        if (editCards.length) {
-          gsap.fromTo(editCards,
-            { clipPath: 'inset(100% 0 0 0)', opacity: 0 },
-            {
-              clipPath: 'inset(0% 0 0 0)', opacity: 1, duration: 1.2, ease: 'power4.out', stagger: 0.15,
-              scrollTrigger: { trigger: editCards[0], start: 'top 85%', toggleActions: 'play none none none' }
-            },
-          );
-        }
-
-        // Counter animation
-        if (statsRef.current) {
-          ScrollTrigger.create({
-            trigger: statsRef.current, start: 'top 75%', once: true,
-            onEnter: () => {
-              STATS.forEach((stat, i) => {
-                const obj = { val: 0 };
-                gsap.to(obj, {
-                  val: stat.value, duration: 2.2, ease: 'power2.out',
-                  onUpdate() {
-                    const el = statsValueRefs.current[i];
-                    if (el) el.innerText = Math.round(obj.val) + stat.suffix;
-                  },
-                });
-              });
-            },
-          });
-        }
-
-        // Section dividers
-        document.querySelectorAll('.section-divider').forEach((el) => {
-          gsap.fromTo(el, { scaleX: 0, transformOrigin: 'left center' },
-            {
-              scaleX: 1, duration: 1.5, ease: 'power3.out',
-              scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none none' }
-            });
-        });
-
-        // Product cards fade-up
-        gsap.fromTo('.product-card', { opacity: 0, y: 40 },
-          {
-            opacity: 1, y: 0, duration: 0.65, stagger: 0.07, ease: 'power3.out',
-            scrollTrigger: { trigger: '#collection', start: 'top 78%', toggleActions: 'play none none none' }
-          });
-
-        // Marquee words 3D tilt on scroll
-        document.querySelectorAll('.marquee-word').forEach((el, i) => {
-          gsap.fromTo(el,
-            { opacity: 0, rotateY: 25, x: i % 2 === 0 ? -30 : 30 },
-            {
-              opacity: 1, rotateY: 0, x: 0, duration: 0.8, delay: i * 0.04,
-              scrollTrigger: { trigger: el.parentElement, start: 'top 80%', toggleActions: 'play none none none' }
-            },
-          );
-        });
-
-        ScrollTrigger.refresh();
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-      mm?.revert();
-      gsapCtxRef.current = null;
-    };
-  }, []);
+  // ── Scroll animations — desktop gets the full GSAP/ScrollTrigger rig,
+  // mobile gets a lightweight IntersectionObserver+CSS substitute that never
+  // imports gsap/Lenis at all. See src/app/home-animations/.
+  const isMobile = useIsMobile();
+  const scrollFXRefs = {
+    heroRef, lookbookImgRef, hFeatRef, hFeatWrapRef, hFeatTrackRef,
+    hAboutRef, hAboutWrapRef, hAboutTrackRef, statsRef, statsValueRefs,
+  };
+  useDesktopScrollFX(isMobile === false, scrollFXRefs, STATS);
+  useMobileScrollFX(isMobile === true, { statsRef, statsValueRefs }, STATS);
 
   // GA4 view_item_list tracking via IntersectionObserver
   useEffect(() => {
@@ -460,7 +303,7 @@ export default function HomeClient({
               {Array.from({ length: 3 }).map((_, ri) =>
                 MARQUEE_WORDS.map((word, wi) => (
                   <span key={`ltr-${ri}-${wi}`} className="marquee-word"
-                    style={{ fontSize: 'clamp(2rem,5vw,4.5rem)', fontWeight: 300, letterSpacing: '-0.02em', color: wi % 3 === 0 ? '#1A1A1A' : wi % 3 === 1 ? 'transparent' : '#8C6F63', WebkitTextStroke: wi % 3 === 1 ? '1px #8C6F63' : '0', marginRight: '3rem', lineHeight: 1, fontStyle: wi % 4 === 2 ? 'italic' : 'normal', opacity: 0 }}>
+                    style={{ fontSize: 'clamp(2rem,5vw,4.5rem)', fontWeight: 300, letterSpacing: '-0.02em', color: wi % 3 === 0 ? '#1A1A1A' : wi % 3 === 1 ? 'transparent' : '#8C6F63', WebkitTextStroke: wi % 3 === 1 ? '1px #8C6F63' : '0', marginRight: '3rem', lineHeight: 1, fontStyle: wi % 4 === 2 ? 'italic' : 'normal' }}>
                     {word}
                     {wi % 3 === 0 && <span style={{ fontSize: '1rem', color: '#C4AC70', marginLeft: '0.5rem' }}>✦</span>}
                   </span>
@@ -473,7 +316,7 @@ export default function HomeClient({
               {Array.from({ length: 3 }).map((_, ri) =>
                 [...MARQUEE_WORDS].reverse().map((word, wi) => (
                   <span key={`rtl-${ri}-${wi}`} className="marquee-word"
-                    style={{ fontSize: 'clamp(2rem,5vw,4.5rem)', fontWeight: 300, letterSpacing: '-0.02em', color: wi % 3 === 1 ? '#1A1A1A' : wi % 3 === 2 ? 'transparent' : '#8C6F63', WebkitTextStroke: wi % 3 === 2 ? '1px #1A1A1A' : '0', marginRight: '3rem', lineHeight: 1, fontStyle: wi % 4 === 1 ? 'italic' : 'normal', opacity: 0 }}>
+                    style={{ fontSize: 'clamp(2rem,5vw,4.5rem)', fontWeight: 300, letterSpacing: '-0.02em', color: wi % 3 === 1 ? '#1A1A1A' : wi % 3 === 2 ? 'transparent' : '#8C6F63', WebkitTextStroke: wi % 3 === 2 ? '1px #1A1A1A' : '0', marginRight: '3rem', lineHeight: 1, fontStyle: wi % 4 === 1 ? 'italic' : 'normal' }}>
                     {word}
                     {wi % 4 === 0 && <span style={{ fontSize: '1rem', color: '#C4AC70', marginLeft: '0.5rem' }}>◆</span>}
                   </span>
@@ -486,28 +329,25 @@ export default function HomeClient({
         {/* ── COLLECTIONS SHOWCASE ── */}
         <section id="collection" style={{ padding: '80px 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
-            <div style={{ marginBottom: '40px' }}>
-              <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', marginBottom: '8px', fontWeight: 500 }}>Curated for you</p>
-              <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.75rem)', fontWeight: 300, color: '#1A1A1A', margin: 0 }}>Shop by Collection</h2>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', marginBottom: '8px', fontWeight: 500 }}>Curated for you</p>
+                <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.75rem)', fontWeight: 300, color: '#1A1A1A', margin: 0 }}>Shop by Collection</h2>
+              </div>
+              <Link href="/collections" style={VIEW_ALL_LINK_STYLE}>View All →</Link>
             </div>
 
             {COLLECTIONS.length === 0 ? (
               <div style={{ padding: '80px 0', textAlign: 'center', color: 'rgba(26,26,26,0.35)' }}>No collections available yet.</div>
+            ) : isMobile === true ? (
+              <Carousel ariaLabel="Shop by Collection" slideWidth="62%">
+                {COLLECTIONS.map((collection) => <CollectionCard key={collection.id} collection={collection} />)}
+              </Carousel>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', columnGap: '24px', rowGap: '40px' }}>
                 {COLLECTIONS.map((collection, i) => (
                   <motion.div key={collection.id} initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}>
-                    <Link href={`/collection/${collection.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-                      <div style={{ position: 'relative', aspectRatio: '3 / 4', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#F4ECE1' }}>
-                        {collection.imageUrl ? (
-                          <Image src={collection.imageUrl} alt={collection.name} fill className="object-cover" sizes="(max-width: 768px) 50vw, 260px" style={{ transition: 'transform 0.8s var(--ease-out-expo)' }} />
-                        ) : (
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(26,26,26,0.25)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Minaara</div>
-                        )}
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)' }} />
-                        <h3 style={{ position: 'absolute', bottom: '18px', left: '18px', right: '18px', fontSize: '1.1rem', fontWeight: 400, color: '#fff', margin: 0, fontFamily: 'var(--font-body)' }}>{collection.name}</h3>
-                      </div>
-                    </Link>
+                    <CollectionCard collection={collection} />
                   </motion.div>
                 ))}
               </div>
@@ -527,15 +367,26 @@ export default function HomeClient({
                   </div>
                   <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.75rem)', fontWeight: 300, color: '#1A1A1A', margin: 0 }}>New Arrivals</h2>
                 </div>
-                <p className="fade-up" style={{ fontSize: '13px', color: 'rgba(26,26,26,0.48)', maxWidth: '380px', lineHeight: 1.7, margin: 0 }}>A curated selection blending contemporary cuts with timeless hand-craftsmanship.</p>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '24px', flexWrap: 'wrap' }}>
+                  <p className="fade-up" style={{ fontSize: '13px', color: 'rgba(26,26,26,0.48)', maxWidth: '380px', lineHeight: 1.7, margin: 0 }}>A curated selection blending contemporary cuts with timeless hand-craftsmanship.</p>
+                  <Link href="/collection?filter=new-arrivals" style={VIEW_ALL_LINK_STYLE}>Explore More →</Link>
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', columnGap: '24px', rowGap: '84px' }}>
-                {NEW_ARRIVALS.map((product, i) => (
-                  <motion.div key={`na-${product.id}`} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ delay: i * 0.08, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}>
-                    <ProductCard product={product} fmt={fmt} onAdd={(size) => { const variantId = product.variants.find((v) => v.size === size)?.id; if (!variantId) return; addItem({ productId: product.id, variantId, title: product.title, size, quantity: 1, priceINR: product.priceINR, imageUrl: product.images[0] ?? '' }); trackAddToCart(product, size, 1); }} />
-                  </motion.div>
-                ))}
-              </div>
+              {isMobile === true ? (
+                <Carousel ariaLabel="New Arrivals" slideWidth="72%">
+                  {NEW_ARRIVALS.slice(0, 6).map((product) => (
+                    <ProductCard key={`na-${product.id}`} product={product} fmt={fmt} onAdd={(size) => { const variantId = product.variants.find((v) => v.size === size)?.id; if (!variantId) return; addItem({ productId: product.id, variantId, title: product.title, size, quantity: 1, priceINR: product.priceINR, imageUrl: product.images[0] ?? '' }); trackAddToCart(product, size, 1); }} />
+                  ))}
+                </Carousel>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', columnGap: '24px', rowGap: '84px' }}>
+                  {NEW_ARRIVALS.slice(0, 8).map((product, i) => (
+                    <motion.div key={`na-${product.id}`} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ delay: i * 0.08, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}>
+                      <ProductCard product={product} fmt={fmt} onAdd={(size) => { const variantId = product.variants.find((v) => v.size === size)?.id; if (!variantId) return; addItem({ productId: product.id, variantId, title: product.title, size, quantity: 1, priceINR: product.priceINR, imageUrl: product.images[0] ?? '' }); trackAddToCart(product, size, 1); }} />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -549,28 +400,27 @@ export default function HomeClient({
             <div className="feat-title-wrap">
               <p className="feat-scroll-indicator-text fade-up" style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(244,236,225,0.45)', marginBottom: '8px' }}>✦ Drag to explore</p>
               <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.8rem)', fontWeight: 300, color: '#fff', margin: 0 }}>Featured Pieces</h2>
+              <Link href="/collection?filter=featured" className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(244,236,225,0.7)', textDecoration: 'none', borderBottom: '1px solid rgba(244,236,225,0.4)', paddingBottom: '2px', marginTop: '14px', display: 'inline-block' }}>Explore More →</Link>
             </div>
-            <div ref={hFeatWrapRef} className="feat-scroll-wrap" style={{ display: 'flex', alignItems: 'center', height: '100vh', padding: '0 48px', paddingTop: '140px', paddingBottom: '80px', position: 'relative', zIndex: 10 }}>
-              <div ref={hFeatTrackRef} className="feat-scroll-track" style={{ display: 'flex', gap: '24px', willChange: 'transform' }}>
-                {H_FEATURES.map((product, i) => (
-                  <div key={`hx-${product.id}`} style={{ width: '300px', flexShrink: 0 }}>
-                    <Link href={`/product/${product.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-                      <div className="hx-card" style={{ position: 'relative', height: '420px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#1A1A1A', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                        {product.images[0] && <Image src={product.images[0]} alt={product.title} fill className="object-cover hx-img" sizes="300px" style={{ transition: 'transform 0.8s var(--ease-out-expo)' }} />}
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 60%)' }} />
-                        <span style={{ position: 'absolute', top: '16px', left: '16px', fontSize: '11px', color: 'rgba(255,255,255,0.7)', padding: '4px 10px', borderRadius: '100px', backgroundColor: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.08)' }}>{String(i + 1).padStart(2, '0')}</span>
-                        <div style={{ position: 'absolute', bottom: '16px', left: '16px', right: '16px', padding: '16px', backgroundColor: 'rgba(20, 20, 20, 0.85)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-                          <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>{product.category}</span>
-                          <h3 style={{ fontSize: '1.05rem', color: '#fff', margin: '0 0 6px', fontWeight: 400, fontFamily: 'var(--font-body)' }}>{product.title}</h3>
-                          <p style={{ fontSize: '0.82rem', color: '#C4AC70', margin: 0, fontWeight: 500 }}>{fmt(product.priceINR)}</p>
-                        </div>
-                      </div>
-                      <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(244,236,225,0.35)', margin: '14px 0 0', padding: '0 4px' }}>Shop Now →</p>
-                    </Link>
-                  </div>
-                ))}
+            {isMobile === true ? (
+              <div style={{ padding: '0 24px 60px', position: 'relative', zIndex: 10 }}>
+                <Carousel ariaLabel="Featured Pieces" slideWidth="82%" className="carousel-on-dark">
+                  {H_FEATURES.slice(0, 6).map((product, i) => (
+                    <FeaturedCard key={`hx-${product.id}`} product={product} index={i} fmt={fmt} />
+                  ))}
+                </Carousel>
               </div>
-            </div>
+            ) : (
+              <div ref={hFeatWrapRef} className="feat-scroll-wrap" style={{ display: 'flex', alignItems: 'center', height: '100vh', padding: '0 48px', paddingTop: '140px', paddingBottom: '80px', position: 'relative', zIndex: 10 }}>
+                <div ref={hFeatTrackRef} className="feat-scroll-track" style={{ display: 'flex', gap: '24px', willChange: 'transform' }}>
+                  {H_FEATURES.slice(0, 8).map((product, i) => (
+                    <div key={`hx-${product.id}`} style={{ width: '300px', flexShrink: 0 }}>
+                      <FeaturedCard product={product} index={i} fmt={fmt} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -599,22 +449,18 @@ export default function HomeClient({
             <div style={{ textAlign: 'center', maxWidth: '480px', margin: '0 auto 48px' }}>
               <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', marginBottom: '12px' }}>Editorial Stories</p>
               <h2 className="scroll-heading" style={{ fontSize: 'clamp(1.8rem,2.5vw,2.5rem)', fontWeight: 300, color: '#1A1A1A', margin: '0 0 16px' }}>Stories in Weaves</h2>
-              <div style={{ width: '40px', height: '1px', backgroundColor: '#8C6F63', margin: '0 auto' }} />
+              <div style={{ width: '40px', height: '1px', backgroundColor: '#8C6F63', margin: '0 auto 16px' }} />
+              <Link href="/lookbook" style={VIEW_ALL_LINK_STYLE}>View All →</Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '24px' }}>
-              {EDITORIAL_STORIES.map((item, i) => (
-                <div key={i} className="edit-card" style={{ position: 'relative', aspectRatio: '3/4', borderRadius: '12px', overflow: 'hidden', cursor: 'pointer' }}>
-                  <Image src={item.imageUrl} alt={item.title} fill className="object-cover edit-img" sizes="33vw" />
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(12,8,6,0.88) 0%, rgba(12,8,6,0.18) 55%, transparent 75%)' }} />
-                  <div style={{ position: 'absolute', bottom: '28px', left: '28px', right: '28px', color: '#fff' }}>
-                    <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(244,236,225,0.65)', display: 'block', marginBottom: '6px' }}>{item.chapter}</span>
-                    <h3 style={{ fontSize: '1.4rem', margin: '0 0 8px', fontWeight: 400 }}>{item.title}</h3>
-                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.52)', margin: '0 0 14px', lineHeight: 1.5 }}>{item.desc}</p>
-                    <Link href={item.href || '/lookbook'} style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#fff', textDecoration: 'none', borderBottom: '1px solid rgba(255,255,255,0.38)', paddingBottom: '2px' }}>Shop Look →</Link>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {isMobile === true ? (
+              <Carousel ariaLabel="Stories in Weaves" slideWidth="82%">
+                {EDITORIAL_STORIES.map((item, i) => <StoryCard key={i} item={item} />)}
+              </Carousel>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '24px' }}>
+                {EDITORIAL_STORIES.map((item, i) => <StoryCard key={i} item={item} />)}
+              </div>
+            )}
           </div>
         </section>
 
@@ -627,15 +473,23 @@ export default function HomeClient({
                   <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', margin: '0 0 8px', fontWeight: 500 }}>Loved by many</p>
                   <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.75rem)', fontWeight: 300, color: '#1A1A1A', margin: 0 }}>Bestselling Pieces</h2>
                 </div>
-                <Link href="#collection" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8C6F63', textDecoration: 'none', borderBottom: '1px solid #8C6F63', paddingBottom: '2px' }}>View All →</Link>
+                <Link href="/collection?filter=bestsellers" style={VIEW_ALL_LINK_STYLE}>Explore More →</Link>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', columnGap: '24px', rowGap: '84px' }}>
-                {BESTSELLERS.map((product, i) => (
-                  <motion.div key={`bs-${product.id}`} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ delay: i * 0.08, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}>
-                    <ProductCard product={product} fmt={fmt} onAdd={(size) => { const variantId = product.variants.find((v) => v.size === size)?.id; if (!variantId) return; addItem({ productId: product.id, variantId, title: product.title, size, quantity: 1, priceINR: product.priceINR, imageUrl: product.images[0] ?? '' }); trackAddToCart(product, size, 1); }} />
-                  </motion.div>
-                ))}
-              </div>
+              {isMobile === true ? (
+                <Carousel ariaLabel="Bestselling Pieces" slideWidth="72%">
+                  {BESTSELLERS.slice(0, 6).map((product) => (
+                    <ProductCard key={`bs-${product.id}`} product={product} fmt={fmt} onAdd={(size) => { const variantId = product.variants.find((v) => v.size === size)?.id; if (!variantId) return; addItem({ productId: product.id, variantId, title: product.title, size, quantity: 1, priceINR: product.priceINR, imageUrl: product.images[0] ?? '' }); trackAddToCart(product, size, 1); }} />
+                  ))}
+                </Carousel>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', columnGap: '24px', rowGap: '84px' }}>
+                  {BESTSELLERS.slice(0, 8).map((product, i) => (
+                    <motion.div key={`bs-${product.id}`} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ delay: i * 0.08, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}>
+                      <ProductCard product={product} fmt={fmt} onAdd={(size) => { const variantId = product.variants.find((v) => v.size === size)?.id; if (!variantId) return; addItem({ productId: product.id, variantId, title: product.title, size, quantity: 1, priceINR: product.priceINR, imageUrl: product.images[0] ?? '' }); trackAddToCart(product, size, 1); }} />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -646,7 +500,7 @@ export default function HomeClient({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '32px', textAlign: 'center' }}>
               {STATS.map((stat, i) => (
                 <div key={i} className="slide-left"
-                  style={{ opacity: 0, border: '1px solid rgba(196, 172, 112, 0.18)', borderRadius: '16px', padding: '36px 24px' }}>
+                  style={{ border: '1px solid rgba(196, 172, 112, 0.18)', borderRadius: '16px', padding: '36px 24px' }}>
                   <div ref={(el) => { statsValueRefs.current[i] = el; }}
                     style={{ fontSize: 'clamp(2.5rem,4vw,4rem)', fontWeight: 300, color: '#C4AC70', lineHeight: 1, marginBottom: '10px' }}>
                     0{stat.suffix}
@@ -882,8 +736,9 @@ export default function HomeClient({
           @media (max-width: 768px) {
             [style*="repeat(4,1fr)"] { grid-template-columns: repeat(2,1fr) !important; }
             [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
-            [style*="repeat(3,1fr)"] { grid-template-columns: 1fr !important; }
             [style*="padding: 0 48px"] { padding: 0 20px !important; }
+            [style*="padding: 80px 0"] { padding: 44px 0 !important; }
+            [style*="padding: 70px 0"] { padding: 44px 0 !important; }
 
             .about-panel-grid {
               grid-template-columns: 1fr !important;
@@ -894,9 +749,70 @@ export default function HomeClient({
               height: 240px !important;
             }
           }
+
+          .carousel-on-dark button[aria-label^="Go to slide"] {
+            background-color: rgba(244,236,225,0.3) !important;
+          }
+          .carousel-on-dark button[aria-label^="Go to slide"][style*="width: 20px"] {
+            background-color: #C4AC70 !important;
+          }
         `}</style>
       </div>
     </main>
+  );
+}
+
+// ── Collection Card (Shop by Collection grid / mobile carousel) ────────────────
+function CollectionCard({ collection }: { collection: Collection }) {
+  return (
+    <Link href={`/collection/${collection.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
+      <div style={{ position: 'relative', aspectRatio: '3 / 4', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#F4ECE1' }}>
+        {collection.imageUrl ? (
+          <Image src={collection.imageUrl} alt={collection.name} fill className="object-cover" sizes="(max-width: 768px) 50vw, 260px" style={{ transition: 'transform 0.8s var(--ease-out-expo)' }} />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(26,26,26,0.25)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Minaara</div>
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)' }} />
+        <h3 style={{ position: 'absolute', bottom: '18px', left: '18px', right: '18px', fontSize: '1.1rem', fontWeight: 400, color: '#fff', margin: 0, fontFamily: 'var(--font-body)' }}>{collection.name}</h3>
+      </div>
+    </Link>
+  );
+}
+
+// ── Story Card (Editorial Stories grid / mobile carousel) ──────────────────────
+function StoryCard({ item }: { item: EditorialStory }) {
+  return (
+    <div className="edit-card" style={{ position: 'relative', aspectRatio: '3/4', borderRadius: '12px', overflow: 'hidden', cursor: 'pointer' }}>
+      <Image src={item.imageUrl} alt={item.title} fill className="object-cover edit-img" sizes="33vw" />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(12,8,6,0.88) 0%, rgba(12,8,6,0.18) 55%, transparent 75%)' }} />
+      <div style={{ position: 'absolute', bottom: '28px', left: '28px', right: '28px', color: '#fff' }}>
+        <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(244,236,225,0.65)', display: 'block', marginBottom: '6px' }}>{item.chapter}</span>
+        <h3 style={{ fontSize: '1.4rem', margin: '0 0 8px', fontWeight: 400 }}>{item.title}</h3>
+        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.52)', margin: '0 0 14px', lineHeight: 1.5 }}>{item.desc}</p>
+        <Link href={item.href || '/lookbook'} style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#fff', textDecoration: 'none', borderBottom: '1px solid rgba(255,255,255,0.38)', paddingBottom: '2px' }}>Shop Look →</Link>
+      </div>
+    </div>
+  );
+}
+
+// ── Featured Card (dark, horizontal scroller / mobile carousel) ────────────────
+interface FeaturedCardProps { product: Product; index: number; fmt: (p: number) => string; }
+
+function FeaturedCard({ product, index, fmt }: FeaturedCardProps) {
+  return (
+    <Link href={`/product/${product.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
+      <div className="hx-card" style={{ position: 'relative', height: '420px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#1A1A1A', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+        {product.images[0] && <Image src={product.images[0]} alt={product.title} fill className="object-cover hx-img" sizes="300px" style={{ transition: 'transform 0.8s var(--ease-out-expo)' }} />}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 60%)' }} />
+        <span style={{ position: 'absolute', top: '16px', left: '16px', fontSize: '11px', color: 'rgba(255,255,255,0.7)', padding: '4px 10px', borderRadius: '100px', backgroundColor: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.08)' }}>{String(index + 1).padStart(2, '0')}</span>
+        <div style={{ position: 'absolute', bottom: '16px', left: '16px', right: '16px', padding: '16px', backgroundColor: 'rgba(20, 20, 20, 0.85)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: '6px' }}>{product.category}</span>
+          <h3 style={{ fontSize: '1.05rem', color: '#fff', margin: '0 0 6px', fontWeight: 400, fontFamily: 'var(--font-body)' }}>{product.title}</h3>
+          <p style={{ fontSize: '0.82rem', color: '#C4AC70', margin: 0, fontWeight: 500 }}>{fmt(product.priceINR)}</p>
+        </div>
+      </div>
+      <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(244,236,225,0.35)', margin: '14px 0 0', padding: '0 4px' }}>Shop Now →</p>
+    </Link>
   );
 }
 

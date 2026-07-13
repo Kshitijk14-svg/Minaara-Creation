@@ -116,6 +116,7 @@ export const StorefrontKeys = {
   homeBestsellers:    'products_list:bestsellers:true:8:0',
   homeFeatured:       'products_list:featured:true:8:0',
   homeCollections:    'collections_list:home:8:0',
+  allCollections:     'collections_list:all:0',
   homeTestimonials:   'testimonials_list:home',
   homeHaveliHotspots: 'haveli_hotspots_list:home',
 } as const;
@@ -148,6 +149,7 @@ export async function invalidateStorefrontProducts(): Promise<void> {
       StorefrontKeys.homeBestsellers,
       StorefrontKeys.homeFeatured,
       StorefrontKeys.homeCollections,
+      StorefrontKeys.allCollections,
     );
   } catch {
     // non-fatal
