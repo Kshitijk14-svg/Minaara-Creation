@@ -11,6 +11,7 @@ const MAX_OTP_ATTEMPTS = 5;
 const OTP_FAIL_WINDOW_SECS = 15 * 60;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: "OTP",
