@@ -331,7 +331,7 @@ export default function HomeClient({
 
         {/* ── COLLECTIONS SHOWCASE ── */}
         <section id="collection" className="sec-collection" style={{ padding: '80px 0' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+          <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
               <div>
                 <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', marginBottom: '8px', fontWeight: 500 }}>Curated for you</p>
@@ -361,7 +361,7 @@ export default function HomeClient({
         {/* ── NEW ARRIVALS ── */}
         {NEW_ARRIVALS.length > 0 && (
           <section className="sec-new-arrivals" style={{ padding: '80px 0', backgroundColor: '#FAF8F5' }}>
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+            <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -470,7 +470,7 @@ export default function HomeClient({
         {/* ── BESTSELLERS ── */}
         {BESTSELLERS.length > 0 && (
           <section className="sec-bestsellers" style={{ padding: '80px 0', background: 'linear-gradient(to bottom, #FAF8F5, #F5F2EC)' }}>
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+            <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                   <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', margin: '0 0 8px', fontWeight: 500 }}>Loved by many</p>
@@ -789,6 +789,13 @@ export default function HomeClient({
           }
           .carousel-on-dark button[aria-label^="Go to slide"][style*="width: 20px"] {
             background-color: #C4AC70 !important;
+          }
+
+          /* Shop by Collection / New Arrivals / Bestselling Pieces — tighter
+             side gutters than the site-wide 48px/20px default. */
+          .showcase-inner { padding-left: 24px !important; padding-right: 24px !important; }
+          @media (max-width: 768px) {
+            .showcase-inner { padding-left: 16px !important; padding-right: 16px !important; }
           }
         `}</style>
       </div>
