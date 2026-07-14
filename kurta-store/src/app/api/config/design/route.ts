@@ -210,6 +210,10 @@ export async function PATCH(request: NextRequest) {
       .where(eq(designConfigs.id, 'current_config'))
       .limit(1);
 
+    if (!updated) {
+      return NextResponse.json({ error: 'Design config not found' }, { status: 404 });
+    }
+
     await redis.del(CACHE_KEY).catch(() => null);
     revalidatePath('/');
 
