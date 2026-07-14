@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     // 4. Confirmation email — non-blocking.
     sendEmail({
       to:      order.customerEmail,
-      subject: `Order Confirmed — ${order.orderNumber} | Minaara Creation`,
+      subject: `Order Confirmed — ${order.orderNumber} | Minara Creation`,
       html:    renderOrderConfirmationEmail(order as unknown as Order),
     }).catch((emailErr) => {
       console.error('[verify] confirmation email failed:', emailErr);

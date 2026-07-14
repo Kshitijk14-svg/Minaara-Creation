@@ -23,7 +23,7 @@ function createTransporter(): { transport: nodemailer.Transporter; from: string 
 
   if (smtpHost && smtpUser && smtpPass) {
     return {
-      from: process.env.SMTP_FROM ?? `"Minaara Creation" <${smtpUser}>`,
+      from: process.env.SMTP_FROM ?? `"Minara Creation" <${smtpUser}>`,
       transport: nodemailer.createTransport({
         host:   smtpHost,
         port:   process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587,
@@ -36,7 +36,7 @@ function createTransporter(): { transport: nodemailer.Transporter; from: string 
 
   if (gmailUser && gmailPass) {
     return {
-      from: `"Minaara Creation" <${gmailUser}>`,
+      from: `"Minara Creation" <${gmailUser}>`,
       transport: nodemailer.createTransport({
         service: 'gmail',
         auth:    { user: gmailUser, pass: gmailPass },
@@ -68,7 +68,7 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
 function shell(content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Minaara Creation</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Minara Creation</title></head>
 <body style="margin:0;padding:0;background:#faf8f5;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f5;padding:40px 0;">
     <tr><td align="center">
@@ -76,7 +76,7 @@ function shell(content: string): string {
         <!-- Header -->
         <tr style="background:#0f2a5b;">
           <td style="padding:28px 40px;text-align:center;">
-            <span style="font-size:22px;font-family:Georgia,serif;font-style:italic;color:#ffffff;letter-spacing:0.08em;">Minaara Creation</span>
+            <span style="font-size:22px;font-family:Georgia,serif;font-style:italic;color:#ffffff;letter-spacing:0.08em;">Minara Creation</span>
           </td>
         </tr>
         <!-- Content -->
@@ -85,7 +85,7 @@ function shell(content: string): string {
         <tr style="background:#f4ece1;">
           <td style="padding:20px 40px;text-align:center;">
             <p style="margin:0;font-size:11px;color:#888;letter-spacing:0.05em;">
-              Minaara Creation · Bapu Bazaar, Jaipur 302003, India<br>
+              Minara Creation · Bapu Bazaar, Jaipur 302003, India<br>
               <a href="https://labelminara.com" style="color:#32518c;text-decoration:none;">labelminara.com</a>
               &nbsp;·&nbsp;
               <a href="mailto:support@labelminara.com" style="color:#32518c;text-decoration:none;">support@labelminara.com</a>
@@ -331,7 +331,7 @@ export function renderAbandonCartEmail(
       You left something behind…
     </h2>
     <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 24px;">
-      Hi ${customerName || 'there'}, your Minaara bag is waiting for you.
+      Hi ${customerName || 'there'}, your Minara bag is waiting for you.
       These handcrafted pieces are selling fast — complete your order before your size sells out.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #ede9df;">

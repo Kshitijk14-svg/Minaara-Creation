@@ -4,7 +4,7 @@ import ProfileClient from './ProfileClient';
 
 export const metadata = {
   title: 'My Account',
-  description: 'Manage your Minaara Creation account, view order history and update your preferences.',
+  description: 'Manage your Minara Creation account, view order history and update your preferences.',
 };
 
 export default async function ProfilePage() {

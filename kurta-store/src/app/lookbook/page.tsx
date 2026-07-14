@@ -5,7 +5,7 @@ import type { Product, DesignConfig } from '@/types/schema';
 export const revalidate = 600;
 
 export const metadata: Metadata = {
-  title: 'Lookbook | Minaara Creation',
+  title: 'Lookbook | Minara Creation',
   description: 'Discover our curated lookbook — artisanal Indian womenswear styled for the modern woman.',
 };
 

@@ -64,16 +64,16 @@ async function getActiveTheme(): Promise<string> {
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Minaara Creation',
-    default: 'Minaara Creation — Premium Indian Womenswear',
+    template: '%s | Minara Creation',
+    default: 'Minara Creation — Premium Indian Womenswear',
   },
   description:
     'Discover our curated collection of premium kurtas, anarkalis, and ethnic womenswear. Elevated Indian fashion for the modern woman.',
-  keywords: ['kurta', 'Indian womenswear', 'ethnic wear', 'anarkali', 'festive wear', 'Minaara Creation'],
+  keywords: ['kurta', 'Indian womenswear', 'ethnic wear', 'anarkali', 'festive wear', 'Minara Creation'],
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    siteName: 'Minaara Creation',
+    siteName: 'Minara Creation',
   },
 };
 
@@ -121,7 +121,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "ClothingStore",
-              "name": "Minaara Creation",
+              "name": "Minara Creation",
               "image": "https://labelminara.com/hero-woman.webp",
               "description": "Premium Indian womenswear, handcrafted kurtas, and luxury ethnic fashion.",
               "url": "https://labelminara.com",

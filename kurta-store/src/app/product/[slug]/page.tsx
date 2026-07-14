@@ -73,10 +73,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
-  if (!product) return { title: 'Product Not Found | Minaara Creation' };
+  if (!product) return { title: 'Product Not Found | Minara Creation' };
 
   return {
-    title: `${product.title} | Minaara Creation`,
+    title: `${product.title} | Minara Creation`,
     description: product.description,
     openGraph: {
       title: product.title,

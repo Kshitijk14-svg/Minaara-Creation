@@ -96,11 +96,11 @@ export function Navbar({ session }: NavbarProps) {
 
           {/* Left Navigation Items */}
           <div className="flex-1 flex items-center gap-4 md:gap-8">
-            <MagneticLink as="div" className="md:hidden">
-              <Link href="/" style={{ textDecoration: 'none' }} className="flex items-center">
-                <Image src="/minaara-logo.jpeg" alt="Minaara" width={40} height={40} style={{ objectFit: 'contain', borderRadius: '4px' }} />
+            <div className="navbar-logo-mobile">
+              <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+                <Image src="/minaara-logo.jpeg" alt="Minara" width={40} height={40} style={{ objectFit: 'contain', borderRadius: '4px' }} />
               </Link>
-            </MagneticLink>
+            </div>
             <div className="hidden md:flex items-center gap-6 md:gap-8">
               {[{ href: '/', label: 'Home' }, { href: '/collection', label: 'Collection' }, { href: '/cart', label: 'Cart' }].map((l) => {
                 const isActive = l.href === '/' ? pathname === '/' : pathname === l.href;
@@ -154,11 +154,11 @@ export function Navbar({ session }: NavbarProps) {
                 Search products...
               </span>
             </button>
-            <MagneticLink as="div" className="hidden md:block">
-              <Link href="/" style={{ textDecoration: 'none' }} className="font-display text-3xl text-[#1A1A1A] tracking-wider font-light">
-                Minaara Creation
+            <div className="navbar-logo-desktop">
+              <Link href="/" style={{ textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: '1.875rem', color: '#1A1A1A', letterSpacing: '0.05em', fontWeight: 300 }}>
+                Label Minara
               </Link>
-            </MagneticLink>
+            </div>
           </div>
 
           {/* Right Navigation Items */}

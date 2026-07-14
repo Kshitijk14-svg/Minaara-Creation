@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       try {
         await sendEmail({
           to:      data.email,
-          subject: `${data.name ? `${data.name}, you` : 'You'} left something in your Minaara bag`,
+          subject: `${data.name ? `${data.name}, you` : 'You'} left something in your Minara bag`,
           html:    renderAbandonCartEmail(data.items, data.name),
         });
         // Delete after sending so we don't spam

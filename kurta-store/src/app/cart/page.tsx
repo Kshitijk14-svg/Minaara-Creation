@@ -671,7 +671,7 @@ export default function CartPage() {
                   {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && (
                     <a
                       href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent(
-                        `Hi Minaara! I'd like to order:\n\n${items.map((i) => `• ${i.title} — Size ${i.size} × ${i.quantity} (₹${(i.priceINR * i.quantity).toLocaleString('en-IN')})`).join('\n')}\n\nSubtotal: ₹${subtotalINR.toLocaleString('en-IN')}`
+                        `Hi Minara! I'd like to order:\n\n${items.map((i) => `• ${i.title} — Size ${i.size} × ${i.quantity} (₹${(i.priceINR * i.quantity).toLocaleString('en-IN')})`).join('\n')}\n\nSubtotal: ₹${subtotalINR.toLocaleString('en-IN')}`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"

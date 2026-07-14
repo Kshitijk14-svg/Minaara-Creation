@@ -1120,3 +1120,27 @@ input:checked+.toggle-slider::before {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45), 0 0 15px rgba(196, 172, 112, 0.2);
   transform: translateY(-4px);
 }
+
+/* ── Navbar Logo Visibility ─────────────────────────────────────
+   Use real media queries (not Tailwind utilities) so they are
+   never dropped during production CSS purging.
+   md breakpoint = 768px (matches Tailwind's default).
+────────────────────────────────────────────────────────────── */
+.navbar-logo-mobile {
+  display: flex;
+  align-items: center;
+}
+
+.navbar-logo-desktop {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .navbar-logo-mobile {
+    display: none;
+  }
+
+  .navbar-logo-desktop {
+    display: block;
+  }
+}

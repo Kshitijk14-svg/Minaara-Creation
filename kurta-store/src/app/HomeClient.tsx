@@ -519,7 +519,7 @@ export default function HomeClient({
 
           <div className="about-title-wrap">
             <p className="fade-up" style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(26,26,26,0.35)', marginBottom: '6px' }}>✦ Our Pillars</p>
-            <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.8rem)', fontWeight: 300, color: '#1A1A1A', margin: 0 }}>About Minaara</h2>
+            <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.8rem)', fontWeight: 300, color: '#1A1A1A', margin: 0 }}>About Minara</h2>
           </div>
           <div className="about-scroll-indicator" style={{ position: 'absolute', bottom: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '40px', height: '1px', backgroundColor: 'rgba(26,26,26,0.25)' }} />
@@ -770,7 +770,7 @@ function CollectionCard({ collection }: { collection: Collection }) {
         {collection.imageUrl ? (
           <Image src={collection.imageUrl} alt={collection.name} fill className="object-cover" sizes="(max-width: 768px) 50vw, 260px" style={{ transition: 'transform 0.8s var(--ease-out-expo)' }} />
         ) : (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(26,26,26,0.25)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Minaara</div>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(26,26,26,0.25)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Minara</div>
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)' }} />
         <h3 style={{ position: 'absolute', bottom: '18px', left: '18px', right: '18px', fontSize: '1.1rem', fontWeight: 400, color: '#fff', margin: 0, fontFamily: 'var(--font-body)' }}>{collection.name}</h3>

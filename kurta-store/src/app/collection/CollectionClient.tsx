@@ -77,7 +77,7 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
       <section style={{ position: 'relative', height: '40vh', display: 'flex', alignItems: 'flex-end', backgroundColor: '#F4ECE1', overflow: 'hidden' }}>
         <Image
           src="/lookbook-banner.webp"
-          alt="Minaara Collections"
+          alt="Minara Collections"
           fill
           className="object-cover object-center"
           priority

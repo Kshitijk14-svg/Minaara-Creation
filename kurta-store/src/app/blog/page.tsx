@@ -8,8 +8,8 @@ import { and, desc, eq, isNotNull } from 'drizzle-orm';
 export const revalidate = 600;
 
 export const metadata: Metadata = {
-  title: 'Journal | Minaara Creation',
-  description: 'Stories of craft, culture and conscious fashion from the studio of Minaara Creation.',
+  title: 'Journal | Minara Creation',
+  description: 'Stories of craft, culture and conscious fashion from the studio of Minara Creation.',
 };
 
 interface Post {
@@ -55,7 +55,7 @@ export default async function BlogPage() {
           The Journal
         </h1>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--color-brand-charcoal)', opacity: 0.6, marginTop: '16px', lineHeight: 1.8 }}>
-          Behind the weaves, the weavers, and the world of Minaara Creation.
+          Behind the weaves, the weavers, and the world of Minara Creation.
         </p>
       </section>
 

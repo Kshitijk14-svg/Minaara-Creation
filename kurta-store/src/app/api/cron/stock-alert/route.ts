@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     if (alertItems.length > 0 && process.env.ADMIN_EMAIL) {
       sendEmail({
         to:      process.env.ADMIN_EMAIL,
-        subject: `[Minaara] Low Stock Alert — ${uniqueProducts.length} product${uniqueProducts.length > 1 ? 's' : ''} need restocking`,
+        subject: `[Minara] Low Stock Alert — ${uniqueProducts.length} product${uniqueProducts.length > 1 ? 's' : ''} need restocking`,
         html:    renderLowStockAlertEmail(alertItems),
       }).catch((err) => {
         console.error('[stock-alert] email failed:', err);

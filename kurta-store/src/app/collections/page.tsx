@@ -7,8 +7,8 @@ import { StorefrontKeys } from '@/lib/cache';
 export const revalidate = 600;
 
 export const metadata: Metadata = {
-  title: 'All Collections | Minaara Creation',
-  description: 'Browse every curated collection of artisanal Indian womenswear from Minaara Creation.',
+  title: 'All Collections | Minara Creation',
+  description: 'Browse every curated collection of artisanal Indian womenswear from Minara Creation.',
 };
 
 const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
@@ -88,7 +88,7 @@ export default async function CollectionsPage() {
                   {collection.imageUrl ? (
                     <Image src={collection.imageUrl} alt={collection.name} fill className="object-cover" sizes="(max-width: 768px) 50vw, 260px" />
                   ) : (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(26,26,26,0.25)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Minaara</div>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(26,26,26,0.25)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Minara</div>
                   )}
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)' }} />
                   <h3 style={{ position: 'absolute', bottom: '18px', left: '18px', right: '18px', fontSize: '1.1rem', fontWeight: 400, color: '#fff', margin: 0, fontFamily: 'var(--font-body)' }}>{collection.name}</h3>

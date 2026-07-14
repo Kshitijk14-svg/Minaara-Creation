@@ -5,7 +5,7 @@ import { getAdminStats } from '@/lib/admin-stats';
 import { getProductsList, getCollectionsList, getCouponsList, getOrdersAdminList } from '@/lib/admin-list-queries';
 
 export const metadata = {
-  title: 'Admin Dashboard — Minaara Creation',
+  title: 'Admin Dashboard — Minara Creation',
   description: 'Manage products, collections, coupons, and orders.',
 };
 

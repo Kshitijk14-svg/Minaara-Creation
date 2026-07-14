@@ -88,10 +88,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params;
   const data = await getData(slug);
-  if (!data) return { title: 'Collection Not Found | Minaara Creation' };
+  if (!data) return { title: 'Collection Not Found | Minara Creation' };
   return {
-    title: `${data.collection.name} | Minaara Creation`,
-    description: data.collection.description ?? `Shop ${data.collection.name} — premium Indian womenswear by Minaara Creation.`,
+    title: `${data.collection.name} | Minara Creation`,
+    description: data.collection.description ?? `Shop ${data.collection.name} — premium Indian womenswear by Minara Creation.`,
     openGraph: {
       title: data.collection.name,
       images: data.collection.imageUrl ? [{ url: data.collection.imageUrl }] : [],

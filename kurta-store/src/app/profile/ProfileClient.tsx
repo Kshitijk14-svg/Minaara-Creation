@@ -322,7 +322,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                       : 'Customer',
                   },
                   { label: 'Email', value: user?.email?.split('@')[0], sub: `@${user?.email?.split('@')[1]}` },
-                  { label: 'Member Since', value: memberSince, sub: 'Minaara Family' },
+                  { label: 'Member Since', value: memberSince, sub: 'Minara Family' },
                 ].map((stat, i) => (
                   <motion.div
                     key={stat.label}

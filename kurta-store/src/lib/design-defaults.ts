@@ -25,7 +25,7 @@ export const DEFAULT_USP_ITEMS: UspItem[] = [
 ];
 
 export const DEFAULT_MARQUEE_WORDS: string[] = [
-  'Handcrafted', 'Heritage', 'Organic', 'Artisanal', 'Timeless', 'Grace', 'Culture', 'Tradition', 'Weaves', 'Minaara',
+  'Handcrafted', 'Heritage', 'Organic', 'Artisanal', 'Timeless', 'Grace', 'Culture', 'Tradition', 'Weaves', 'Minara',
 ];
 
 export const DEFAULT_ABOUT_PANELS: AboutPanel[] = [
@@ -49,7 +49,7 @@ export const DEFAULT_STATS: StatItem[] = [
 ];
 
 export const DEFAULT_FOOTER_CONTENT: FooterContent = {
-  tagline: 'Minaara Creation',
+  tagline: 'Minara Creation',
   links: [
     { href: '/', label: 'Collection' },
     { href: '/lookbook', label: 'Lookbook' },

@@ -40,9 +40,9 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPost(slug);
-  if (!post) return { title: 'Not Found | Minaara Journal' };
+  if (!post) return { title: 'Not Found | Minara Journal' };
   return {
-    title: `${post.title} | Minaara Journal`,
+    title: `${post.title} | Minara Journal`,
     description: post.excerpt ?? post.content.slice(0, 160),
     openGraph: {
       title: post.title,

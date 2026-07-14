@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import CollectionFormClient from '../../CollectionFormClient';
 
 export const metadata = {
-  title: 'Edit Collection — Minaara Creation',
+  title: 'Edit Collection — Minara Creation',
 };
 
 export default async function EditCollectionPage({

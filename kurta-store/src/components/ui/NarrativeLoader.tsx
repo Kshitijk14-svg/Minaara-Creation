@@ -43,10 +43,10 @@ export function NarrativeLoader({ isLoading }: { isLoading: boolean }) {
     <div ref={containerRef} style={{ position: 'fixed', inset: 0, zIndex: 99999, backgroundColor: '#EDE6DE', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <div ref={logoRef} style={{ opacity: 0, marginBottom: '24px' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/minaara-logo.jpeg" alt="Minaara" width={160} height={160} style={{ objectFit: 'contain', display: 'block' }} />
+        <img src="/minaara-logo.jpeg" alt="Minara" width={160} height={160} style={{ objectFit: 'contain', display: 'block' }} />
       </div>
       <div ref={textRef} style={{ textAlign: 'center', opacity: 0 }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2.5rem, 4vw, 4rem)', fontWeight: 300, letterSpacing: '0.04em', margin: '0 0 12px', color: 'var(--color-brand-charcoal)' }}>Minaara</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2.5rem, 4vw, 4rem)', fontWeight: 300, letterSpacing: '0.04em', margin: '0 0 12px', color: 'var(--color-brand-charcoal)' }}>Minara</h1>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.3em', opacity: 0.7, margin: 0, color: 'var(--color-brand-charcoal)' }}>Dressed in Grace</p>
       </div>
     </div>

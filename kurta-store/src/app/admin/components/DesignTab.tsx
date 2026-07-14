@@ -401,9 +401,9 @@ export default function DesignTab() {
           </div>
         </section>
 
-        {/* ── About Minaara Panels ────────────────────────────────────── */}
+        {/* ── About Minara Panels ────────────────────────────────────── */}
         <section>
-          <SectionHeader title="About Minaara Panels" subtitle="The pinned-scroll brand-story panels (num/label auto-shown as 01, 02…)" />
+          <SectionHeader title="About Minara Panels" subtitle="The pinned-scroll brand-story panels (num/label auto-shown as 01, 02…)" />
           <ArrayFieldEditor<AboutPanel>
             items={aboutPanels}
             onChange={(items) => setAboutPanels(items.map((it, idx) => ({ ...it, num: String(idx + 1).padStart(2, '0') })))}

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import CouponFormClient from '../CouponFormClient';
 
 export const metadata = {
-  title: 'New Coupon — Minaara Creation',
+  title: 'New Coupon — Minara Creation',
 };
 
 export default async function NewCouponPage() {

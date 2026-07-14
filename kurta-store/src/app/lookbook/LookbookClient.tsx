@@ -113,7 +113,7 @@ export default function LookbookClient({ products, config }: Props) {
       {/* Hero */}
       <section style={{ position: 'relative', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0 }}>
-          <Image src="/lookbook-banner.webp" alt="Minaara Lookbook" fill priority style={{ objectFit: 'cover', objectPosition: 'center' }} />
+          <Image src="/lookbook-banner.webp" alt="Minara Lookbook" fill priority style={{ objectFit: 'cover', objectPosition: 'center' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.55) 100%)' }} />
         </div>
         <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', padding: '0 24px' }}>
@@ -123,7 +123,7 @@ export default function LookbookClient({ products, config }: Props) {
             transition={{ delay: 0.3, duration: 0.8 }}
             style={{ fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.3em', color: 'rgba(244,236,225,0.7)', marginBottom: '20px' }}
           >
-            Minaara Creation &nbsp;·&nbsp; 2025
+            Minara Creation &nbsp;·&nbsp; 2025
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
@@ -164,7 +164,7 @@ export default function LookbookClient({ products, config }: Props) {
           <div style={{ position: 'absolute', inset: 0 }}>
             <Image
               src={panel.image}
-              alt={`Minaara Lookbook — Scene ${i + 1}`}
+              alt={`Minara Lookbook — Scene ${i + 1}`}
               fill
               style={{ objectFit: 'cover', objectPosition: 'center' }}
               sizes="100vw"

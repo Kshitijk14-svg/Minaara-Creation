@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import ProductFormClient from '../ProductFormClient';
 
 export const metadata = {
-  title: 'New Product — Minaara Creation',
+  title: 'New Product — Minara Creation',
 };
 
 export default async function NewProductPage() {

@@ -164,7 +164,7 @@ export default function CheckoutPage() {
         amount:      rzpData.amount,
         currency:    rzpData.currency,
         order_id:    rzpData.razorpayOrderId,
-        name:        'Minaara Creation',
+        name:        'Minara Creation',
         description: `Order for ${items.length} item${items.length > 1 ? 's' : ''}`,
         image:       '/logo.png',
         prefill: { name: form.fullName, email: form.email, contact: form.phone },
