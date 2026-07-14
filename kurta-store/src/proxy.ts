@@ -19,6 +19,7 @@ function makeLimiter(max: number, windowSecs: number, prefix: string): Limiter {
 // Separate limiters per endpoint class so one burst doesn't starve others
 const orderLimiter = makeLimiter(5, 60, 'rl:orders');
 const otpLimiter = makeLimiter(5, 600, 'rl:otp');
+const passwordLimiter = makeLimiter(5, 600, 'rl:password');
 const searchLimiter = makeLimiter(30, 60, 'rl:search');
 const generalLimiter = makeLimiter(60, 60, 'rl:general');
 
@@ -61,9 +62,13 @@ export async function proxy(request: NextRequest) {
   } else if (pathname === '/api/auth/send-otp' && method === 'POST') {
     limiter = otpLimiter;
     failClosed = true;
-  } else if (pathname === '/api/auth/callback/credentials' && method === 'POST') {
-    // OTP verification — brute-force surface, throttle + fail closed.
+  } else if (pathname === '/api/auth/callback/otp' && method === 'POST') {
+    // OTP verification (signup / password reset) — brute-force surface, throttle + fail closed.
     limiter = otpLimiter;
+    failClosed = true;
+  } else if (pathname === '/api/auth/callback/password' && method === 'POST') {
+    // Password login — classic brute-force target, throttle + fail closed.
+    limiter = passwordLimiter;
     failClosed = true;
   } else if (pathname === '/api/search' && method === 'GET') {
     limiter = searchLimiter;

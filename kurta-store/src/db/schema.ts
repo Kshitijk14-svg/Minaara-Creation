@@ -35,6 +35,7 @@ export const users = mysqlTable('users', {
   id:        varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
   email:     varchar('email', { length: 255 }).notNull().unique(),
   name:      varchar('name', { length: 255 }),
+  passwordHash: varchar('passwordHash', { length: 255 }),
   role:      mysqlEnum('role', ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'CUSTOMER']).default('CUSTOMER').notNull(),
   createdAt: datetime('createdAt').notNull().$defaultFn(() => new Date()),
   updatedAt: datetime('updatedAt').notNull().$defaultFn(() => new Date()),

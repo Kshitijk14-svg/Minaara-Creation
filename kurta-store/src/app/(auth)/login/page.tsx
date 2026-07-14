@@ -5,15 +5,114 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '10px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.2em',
+  fontWeight: 600,
+  color: 'var(--color-brand-charcoal)',
+  opacity: 0.7,
+  marginBottom: '8px',
+  fontFamily: 'var(--font-body)',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '12px 16px',
+  borderRadius: '4px',
+  border: '1px solid var(--glass-border)',
+  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  color: 'var(--color-brand-charcoal)',
+  fontSize: '13px',
+  fontFamily: 'var(--font-body)',
+  outline: 'none',
+  transition: 'border-color 0.2s, box-shadow 0.2s',
+};
+
+const primaryButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  width: '100%',
+  padding: '16px 24px',
+  backgroundColor: 'var(--color-brand-charcoal)',
+  color: '#ffffff',
+  borderRadius: '4px',
+  border: 'none',
+  fontSize: '10px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.15em',
+  cursor: 'pointer',
+  opacity: disabled ? 0.5 : 1,
+  transition: 'background-color 0.3s',
+});
+
+const linkButtonStyle: React.CSSProperties = {
+  border: 'none',
+  background: 'none',
+  color: 'var(--color-brand-charcoal)',
+  opacity: 0.5,
+  fontSize: '10px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.1em',
+  cursor: 'pointer',
+  fontWeight: 600,
+  padding: '8px 0',
+  textAlign: 'center',
+};
+
+type Mode = 'SIGNIN' | 'SIGNUP' | 'FORGOT';
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [mode, setMode] = useState<'SIGNIN' | 'SIGNUP'>('SIGNIN');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [mode, setMode] = useState<Mode>('SIGNIN');
   const [step, setStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const resetExtraFields = () => {
+    setOtp('');
+    setPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setError('');
+    setStep('EMAIL');
+  };
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    resetExtraFields();
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await signIn('password', {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+      });
+
+      if (res?.error) {
+        throw new Error('Incorrect email or password.');
+      }
+
+      router.push('/');
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +129,10 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), type: mode }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          type: mode === 'SIGNUP' ? 'SIGNUP' : 'RESET',
+        }),
       });
       const data = await res.json();
 
@@ -49,11 +151,25 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    if (mode === 'FORGOT') {
+      if (newPassword.length < 8) {
+        setError('Password must be at least 8 characters.');
+        setLoading(false);
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setError('Passwords do not match.');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      const res = await signIn('credentials', {
+      const res = await signIn('otp', {
         email: email.trim().toLowerCase(),
         otp: otp.trim(),
         name: mode === 'SIGNUP' ? name.trim() : undefined,
+        newPassword: mode === 'FORGOT' ? newPassword : undefined,
         redirect: false,
       });
 
@@ -78,14 +194,26 @@ export default function LoginPage() {
     }
   };
 
+  const heading = mode === 'FORGOT'
+    ? (step === 'EMAIL' ? 'Reset Password' : 'Set New Password')
+    : step === 'EMAIL'
+      ? (mode === 'SIGNIN' ? 'Welcome Back' : 'Create Account')
+      : 'Verify Access';
+
+  const subheading = mode === 'FORGOT'
+    ? (step === 'EMAIL' ? "Enter your account email and we'll send you a code." : `Enter the code sent to ${email} and choose a new password.`)
+    : step === 'EMAIL'
+      ? (mode === 'SIGNIN' ? 'Enter your credentials to access your account.' : 'Join the collective for curated artisan collections.')
+      : `We've sent a 6-digit code to ${email}`;
+
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingTop: '60px', paddingBottom: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: '440px', padding: '0 20px' }}>
-        
+
         {/* Navigation Breadcrumb */}
         <div style={{ marginBottom: '24px' }}>
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="text-[10px] uppercase tracking-[0.2em] font-semibold transition-colors font-body flex items-center gap-3 group"
             style={{ textDecoration: 'none', display: 'inline-flex', color: 'var(--color-brand-charcoal)', opacity: 0.6 }}
           >
@@ -94,13 +222,13 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        <div 
-          style={{ 
-            backgroundColor: 'var(--glass-bg)', 
+        <div
+          style={{
+            backgroundColor: 'var(--glass-bg)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            borderRadius: '16px', 
-            border: '1px solid var(--glass-border)', 
+            borderRadius: '16px',
+            border: '1px solid var(--glass-border)',
             padding: '40px 32px',
             boxShadow: 'var(--glass-shadow)',
           }}
@@ -109,45 +237,40 @@ export default function LoginPage() {
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <Link href="/" style={{ textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
               <span style={{ fontSize: '1.75rem', fontFamily: 'var(--font-display)', fontWeight: 300, fontStyle: 'italic', color: 'var(--color-brand-charcoal)', letterSpacing: '0.05em' }}>
-                Minaara
+                Minara
               </span>
             </Link>
-            <h2 
-              style={{ 
-                fontFamily: 'var(--font-display)', 
-                fontSize: '1.5rem', 
-                fontWeight: 400, 
+            <h2
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.5rem',
+                fontWeight: 400,
                 color: 'var(--color-brand-charcoal)',
                 margin: '0 0 8px'
               }}
             >
-              {step === 'EMAIL' ? (mode === 'SIGNIN' ? 'Welcome Back' : 'Create Account') : 'Verify Access'}
+              {heading}
             </h2>
-            <p 
-              style={{ 
-                fontFamily: 'var(--font-body)', 
-                fontSize: '13px', 
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '13px',
                 color: 'var(--color-brand-charcoal)',
                 opacity: 0.6,
                 margin: 0,
                 lineHeight: 1.4
               }}
             >
-              {step === 'EMAIL'
-                ? (mode === 'SIGNIN' ? 'Enter your credentials to access your account.' : 'Join the collective for curated artisan collections.')
-                : `We've sent a 6-digit code to ${email}`}
+              {subheading}
             </p>
           </div>
 
-          {/* Toggle Tabs (Sign In / Sign Up) - Hidden/Disabled during OTP verification */}
-          {step === 'EMAIL' && (
+          {/* Toggle Tabs (Sign In / Sign Up) - hidden during OTP step and during password reset */}
+          {step === 'EMAIL' && mode !== 'FORGOT' && (
             <div style={{ display: 'flex', borderBottom: '1px solid var(--color-brand-smoke)', marginBottom: '28px' }}>
               <button
                 type="button"
-                onClick={() => {
-                  setMode('SIGNIN');
-                  setError('');
-                }}
+                onClick={() => switchMode('SIGNIN')}
                 style={{
                   flex: 1,
                   padding: '12px 6px',
@@ -170,10 +293,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setMode('SIGNUP');
-                  setError('');
-                }}
+                onClick={() => switchMode('SIGNUP')}
                 style={{
                   flex: 1,
                   padding: '12px 6px',
@@ -198,13 +318,13 @@ export default function LoginPage() {
           )}
 
           {error && (
-            <div 
-              style={{ 
-                padding: '12px 14px', 
-                border: '1px solid rgba(128, 0, 0, 0.15)', 
-                backgroundColor: 'rgba(128, 0, 0, 0.05)', 
-                color: '#800000', 
-                fontSize: '12px', 
+            <div
+              style={{
+                padding: '12px 14px',
+                border: '1px solid rgba(128, 0, 0, 0.15)',
+                backgroundColor: 'rgba(128, 0, 0, 0.05)',
+                color: '#800000',
+                fontSize: '12px',
                 fontFamily: 'var(--font-body)',
                 borderRadius: '4px',
                 marginBottom: '24px',
@@ -215,68 +335,10 @@ export default function LoginPage() {
             </div>
           )}
 
-          {step === 'EMAIL' ? (
-            <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={handleSendOtp}>
-              {mode === 'SIGNUP' && (
-                <div>
-                  <label 
-                    htmlFor="name" 
-                    style={{ 
-                      display: 'block', 
-                      fontSize: '10px', 
-                      textTransform: 'uppercase', 
-                      letterSpacing: '0.2em', 
-                      fontWeight: 600, 
-                      color: 'var(--color-brand-charcoal)',
-                      opacity: 0.7,
-                      marginBottom: '8px',
-                      fontFamily: 'var(--font-body)'
-                    }}
-                  >
-                    Full Name
-                  </label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    autoComplete="name"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '4px',
-                      border: '1px solid var(--glass-border)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      color: 'var(--color-brand-charcoal)',
-                      fontSize: '13px',
-                      fontFamily: 'var(--font-body)',
-                      outline: 'none',
-                      transition: 'border-color 0.2s, box-shadow 0.2s',
-                    }}
-                    placeholder="Enter your full name"
-                  />
-                </div>
-              )}
-
+          {mode === 'SIGNIN' ? (
+            <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={handleSignIn}>
               <div>
-                <label 
-                  htmlFor="email" 
-                  style={{ 
-                    display: 'block', 
-                    fontSize: '10px', 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '0.2em', 
-                    fontWeight: 600, 
-                    color: 'var(--color-brand-charcoal)',
-                    opacity: 0.7,
-                    marginBottom: '8px',
-                    fontFamily: 'var(--font-body)'
-                  }}
-                >
-                  Email Address
-                </label>
+                <label htmlFor="email" style={labelStyle}>Email Address</label>
                 <input
                   id="email"
                   name="email"
@@ -285,18 +347,76 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: '4px',
-                    border: '1px solid var(--glass-border)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    color: 'var(--color-brand-charcoal)',
-                    fontSize: '13px',
-                    fontFamily: 'var(--font-body)',
-                    outline: 'none',
-                    transition: 'border-color 0.2s, box-shadow 0.2s',
-                  }}
+                  style={inputStyle}
+                  placeholder="Enter your email"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" style={labelStyle}>Password</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={inputStyle}
+                  placeholder="Enter your password"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !email.trim() || !password}
+                className="btn-liquid"
+                style={{ ...primaryButtonStyle(loading || !email.trim() || !password), marginTop: '8px' }}
+              >
+                {loading ? 'Signing In...' : 'Sign In'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchMode('FORGOT')}
+                style={linkButtonStyle}
+              >
+                Forgot password?
+              </button>
+              <p style={{ margin: '-8px 0 0', textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-brand-charcoal)', opacity: 0.45, lineHeight: 1.4 }}>
+                First time signing in with a password? Use &ldquo;Forgot password?&rdquo; to set one.
+              </p>
+            </form>
+          ) : step === 'EMAIL' ? (
+            <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={handleSendOtp}>
+              {mode === 'SIGNUP' && (
+                <div>
+                  <label htmlFor="name" style={labelStyle}>Full Name</label>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    style={inputStyle}
+                    placeholder="Enter your full name"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="email" style={labelStyle}>Email Address</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={inputStyle}
                   placeholder="Enter your email"
                 />
               </div>
@@ -305,45 +425,21 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading || !email.trim() || (mode === 'SIGNUP' && !name.trim())}
                 className="btn-liquid"
-                style={{
-                  width: '100%',
-                  padding: '16px 24px',
-                  backgroundColor: 'var(--color-brand-charcoal)',
-                  color: '#ffffff',
-                  borderRadius: '4px',
-                  border: 'none',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.15em',
-                  cursor: 'pointer',
-                  opacity: (loading || !email.trim() || (mode === 'SIGNUP' && !name.trim())) ? 0.5 : 1,
-                  transition: 'background-color 0.3s',
-                  marginTop: '8px'
-                }}
+                style={{ ...primaryButtonStyle(loading || !email.trim() || (mode === 'SIGNUP' && !name.trim())), marginTop: '8px' }}
               >
                 {loading ? 'Sending Code...' : 'Continue'}
               </button>
+
+              {mode === 'FORGOT' && (
+                <button type="button" onClick={() => switchMode('SIGNIN')} style={linkButtonStyle}>
+                  Back to sign in
+                </button>
+              )}
             </form>
           ) : (
             <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={handleVerifyOtp}>
               <div>
-                <label 
-                  htmlFor="otp" 
-                  style={{ 
-                    display: 'block', 
-                    fontSize: '10px', 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '0.2em', 
-                    fontWeight: 600, 
-                    color: 'var(--color-brand-charcoal)',
-                    opacity: 0.7,
-                    marginBottom: '8px',
-                    fontFamily: 'var(--font-body)'
-                  }}
-                >
-                  Verification Code
-                </label>
+                <label htmlFor="otp" style={labelStyle}>Verification Code</label>
                 <input
                   id="otp"
                   name="otp"
@@ -352,46 +448,60 @@ export default function LoginPage() {
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: '4px',
-                    border: '1px solid var(--glass-border)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    color: 'var(--color-brand-charcoal)',
+                    ...inputStyle,
                     fontSize: '20px',
                     fontFamily: 'var(--font-mono)',
                     textAlign: 'center',
                     letterSpacing: '0.4em',
-                    outline: 'none',
-                    transition: 'border-color 0.2s, box-shadow 0.2s',
                   }}
                   placeholder="------"
                   maxLength={6}
                 />
               </div>
 
+              {mode === 'FORGOT' && (
+                <>
+                  <div>
+                    <label htmlFor="newPassword" style={labelStyle}>New Password</label>
+                    <input
+                      id="newPassword"
+                      name="newPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={inputStyle}
+                      placeholder="At least 8 characters"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="confirmPassword" style={labelStyle}>Confirm Password</label>
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      style={inputStyle}
+                      placeholder="Re-enter new password"
+                    />
+                  </div>
+                </>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
                 <button
                   type="submit"
-                  disabled={loading || otp.length < 6}
+                  disabled={loading || otp.length < 6 || (mode === 'FORGOT' && (!newPassword || !confirmPassword))}
                   className="btn-liquid"
-                  style={{
-                    width: '100%',
-                    padding: '16px 24px',
-                    backgroundColor: 'var(--color-brand-charcoal)',
-                    color: '#ffffff',
-                    borderRadius: '4px',
-                    border: 'none',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.15em',
-                    cursor: 'pointer',
-                    opacity: (loading || otp.length < 6) ? 0.5 : 1,
-                    transition: 'background-color 0.3s'
-                  }}
+                  style={primaryButtonStyle(loading || otp.length < 6 || (mode === 'FORGOT' && (!newPassword || !confirmPassword)))}
                 >
-                  {loading ? 'Verifying...' : (mode === 'SIGNIN' ? 'Confirm Sign In' : 'Confirm Registration')}
+                  {loading
+                    ? (mode === 'FORGOT' ? 'Updating...' : 'Verifying...')
+                    : (mode === 'SIGNUP' ? 'Confirm Registration' : 'Set New Password')}
                 </button>
 
                 <button
@@ -401,19 +511,7 @@ export default function LoginPage() {
                     setOtp('');
                     setError('');
                   }}
-                  style={{
-                    border: 'none',
-                    background: 'none',
-                    color: 'var(--color-brand-charcoal)',
-                    opacity: 0.5,
-                    fontSize: '10px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    padding: '8px 0',
-                    textAlign: 'center'
-                  }}
+                  style={linkButtonStyle}
                 >
                   Back to email
                 </button>

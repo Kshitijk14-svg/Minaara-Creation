@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
-    if (!type || (type !== 'SIGNIN' && type !== 'SIGNUP')) {
-      return NextResponse.json({ error: 'Valid request type (SIGNIN or SIGNUP) is required' }, { status: 400 });
+    if (!type || (type !== 'SIGNIN' && type !== 'SIGNUP' && type !== 'RESET')) {
+      return NextResponse.json({ error: 'Valid request type (SIGNIN, SIGNUP, or RESET) is required' }, { status: 400 });
     }
 
     const { success, reset } = await ratelimit.limit(email);
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       .where(eq(users.email, email))
       .limit(1);
 
-    if (type === 'SIGNIN' && !existingUser) {
+    if ((type === 'SIGNIN' || type === 'RESET') && !existingUser) {
       return NextResponse.json(
         { error: 'Account does not exist. Please sign up instead.' },
         { status: 400 }
@@ -66,13 +66,18 @@ export async function POST(req: NextRequest) {
     await db.delete(otps).where(eq(otps.email, email));
     await db.insert(otps).values({ email, code, expiresAt });
 
-    const subject = type === 'SIGNUP' ? 'Verify your Minaara account' : 'Your Minaara sign-in code';
+    const subject = type === 'SIGNUP' ? 'Verify your Minara account'
+      : type === 'RESET' ? 'Reset your Minara password'
+      : 'Your Minara sign-in code';
+    const heading  = type === 'SIGNUP' ? 'Create Your Account'
+      : type === 'RESET' ? 'Reset Your Password'
+      : 'Welcome Back';
     const html    = `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:32px;border:1px solid #ede9df;border-radius:12px;background:#faf8f5;">
       <div style="text-align:center;margin-bottom:24px;">
-        <span style="font-size:24px;font-family:Georgia,serif;font-style:italic;color:#0f2a5b;letter-spacing:0.05em;">Minaara</span>
+        <span style="font-size:24px;font-family:Georgia,serif;font-style:italic;color:#0f2a5b;letter-spacing:0.05em;">Minara</span>
       </div>
       <h2 style="font-family:Georgia,serif;font-weight:normal;color:#0f2a5b;text-align:center;margin-bottom:16px;">
-        ${type === 'SIGNUP' ? 'Create Your Account' : 'Welcome Back'}
+        ${heading}
       </h2>
       <p style="color:#4a4a4a;font-size:14px;line-height:1.6;text-align:center;margin-bottom:24px;">
         Your one-time verification code:
