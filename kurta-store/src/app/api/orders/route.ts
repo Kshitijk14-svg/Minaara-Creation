@@ -12,6 +12,7 @@ import { cacheGet, cacheSet, invalidateTags, CacheKeys, CacheTags } from '@/lib/
 import { getOrdersAdminList } from '@/lib/admin-list-queries';
 import { and, count, desc, eq, inArray, lt } from 'drizzle-orm';
 import { createOrder, CreateOrderSchema, mapOrderError, type CreateOrderOptions } from '@/lib/orders';
+import { pushOrderToShiprocket } from '@/lib/shiprocket';
 
 const ORDERS_USER_TTL = 120;
 
@@ -24,6 +25,7 @@ function serializeOrder(o: any) {
     updatedAt:   o.updatedAt instanceof Date ? o.updatedAt.toISOString() : o.updatedAt,
     cancelledAt: o.cancelledAt instanceof Date ? o.cancelledAt.toISOString() : o.cancelledAt ?? null,
     deliveredAt: o.deliveredAt instanceof Date ? o.deliveredAt.toISOString() : o.deliveredAt ?? null,
+    shippedAt:   o.shippedAt instanceof Date ? o.shippedAt.toISOString() : o.shippedAt ?? null,
   };
 }
 
@@ -55,6 +57,12 @@ export async function POST(request: NextRequest) {
     const tagsToInvalidate: string[] = [CacheTags.orders];
     if (order.userId) tagsToInvalidate.push(CacheTags.ordersByUser(order.userId));
     await invalidateTags(tagsToInvalidate);
+
+    if (opts.paymentStatus === 'PAID') {
+      pushOrderToShiprocket(order.id).catch((err) => {
+        console.error('[POST /api/orders] shiprocket push failed:', err);
+      });
+    }
 
     return NextResponse.json({ order, orderId: order.id, orderNumber: order.orderNumber }, { status: 201 });
   } catch (err) {
@@ -131,6 +139,9 @@ export async function GET(request: NextRequest) {
         cancelledAt:      orders.cancelledAt, deliveredAt: orders.deliveredAt,
         paymentGatewayId: orders.paymentGatewayId, paymentMethod: orders.paymentMethod,
         notes:            orders.notes,
+        shiprocketOrderId: orders.shiprocketOrderId, shiprocketShipmentId: orders.shiprocketShipmentId,
+        awbNumber:        orders.awbNumber, courierName: orders.courierName, trackingUrl: orders.trackingUrl,
+        shiprocketStatus: orders.shiprocketStatus, shippedAt: orders.shippedAt,
       })
         .from(orders)
         .where(conditions)

@@ -10,7 +10,7 @@ import FormField, { inputStyle, selectStyle } from './shared/FormField';
 import LoadingSkeleton from './shared/LoadingSkeleton';
 import StatusBadge from './shared/StatusBadge';
 
-const ORDER_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
+const ORDER_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RTO_INITIATED', 'RTO_DELIVERED', 'CANCELLED', 'REFUNDED'];
 const PAYMENT_STATUSES: PaymentStatus[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
 
 function formatDate(s: string) {
@@ -40,6 +40,8 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
   const [cancelId, setCancelId]       = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelling, setCancelling]   = useState(false);
+  const [pushingId, setPushingId]     = useState<string | null>(null);
+  const [pushError, setPushError]     = useState<string | null>(null);
   const emailTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstRender    = useRef(true);
   const hadInitialData   = useRef(!!initialData);
@@ -118,6 +120,30 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
       }
     } catch { /* silent */ }
     finally { setSaving(false); }
+  }
+
+  async function handlePushToShiprocket(orderId: string) {
+    setPushError(null);
+    setPushingId(orderId);
+    try {
+      const res = await fetch('/api/admin/shiprocket/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPushError(data.error || 'Push failed');
+        return;
+      }
+      const patch = { shiprocketOrderId: data.shiprocketOrderId, shiprocketShipmentId: data.shiprocketShipmentId, shiprocketPushError: null } as Partial<Order>;
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, ...patch } : o));
+      if (detailOrder?.id === orderId) setDetailOrder((d) => d ? { ...d, ...patch } : d);
+    } catch {
+      setPushError('Network error');
+    } finally {
+      setPushingId(null);
+    }
   }
 
   async function handleCancel(orderId: string) {
@@ -307,6 +333,60 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
 
                                   {/* Right: Status Update + Actions */}
                                   <div>
+                                    {/* Shiprocket shipping info */}
+                                    <div style={{ marginBottom: '20px' }}>
+                                      <p style={sectionLabel}>Shipping</p>
+                                      {(detailOrder?.shiprocketOrderId || order.shiprocketOrderId) ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                          {[
+                                            { label: 'Courier', value: (detailOrder || order).courierName },
+                                            { label: 'AWB', value: (detailOrder || order).awbNumber },
+                                            { label: 'Raw Status', value: (detailOrder || order).shiprocketStatus },
+                                            { label: 'Shipped', value: (detailOrder || order).shippedAt ? formatDateTime((detailOrder || order).shippedAt!) : null },
+                                          ].filter((row) => row.value).map((row) => (
+                                            <div key={row.label} style={{ display: 'flex', gap: '8px' }}>
+                                              <span style={{ fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-brand-charcoal)', opacity: 0.4, whiteSpace: 'nowrap', minWidth: '70px' }}>
+                                                {row.label}
+                                              </span>
+                                              <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.7 }}>
+                                                {row.value}
+                                              </span>
+                                            </div>
+                                          ))}
+                                          {(detailOrder || order).trackingUrl && (
+                                            <a href={(detailOrder || order).trackingUrl!} target="_blank" rel="noopener noreferrer"
+                                              style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: '#4f46e5', marginTop: '4px' }}>
+                                              Track shipment ↗
+                                            </a>
+                                          )}
+                                        </div>
+                                      ) : order.paymentStatus === 'PAID' && !['CANCELLED', 'REFUNDED'].includes(order.status) ? (
+                                        <div>
+                                          <button
+                                            onClick={() => handlePushToShiprocket(order.id)}
+                                            disabled={pushingId === order.id}
+                                            style={{
+                                              padding: '8px 14px', borderRadius: '6px',
+                                              border: '1px solid var(--color-brand-mist)', background: 'none',
+                                              color: 'var(--color-brand-charcoal)', fontFamily: 'var(--font-body)', fontSize: '10px',
+                                              fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em',
+                                              cursor: pushingId === order.id ? 'not-allowed' : 'pointer',
+                                              opacity: pushingId === order.id ? 0.6 : 1,
+                                            }}
+                                          >
+                                            {pushingId === order.id ? 'Pushing…' : 'Push to Shiprocket'}
+                                          </button>
+                                          {pushError && pushingId === null && (
+                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: '#dc2626', margin: '8px 0 0' }}>{pushError}</p>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-brand-charcoal)', opacity: 0.4, margin: 0 }}>
+                                          Not applicable until order is paid.
+                                        </p>
+                                      )}
+                                    </div>
+
                                     <p style={sectionLabel}>Update Order</p>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
                                       <FormField label="Order Status">

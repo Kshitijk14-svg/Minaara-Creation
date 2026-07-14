@@ -29,6 +29,7 @@ const UpdateProductSchema = z.object({
   description:       z.string().min(1).optional(),
   priceINR:          z.number().positive().optional(),
   compareAtPriceINR: z.number().positive().nullable().optional(),
+  weightGrams:       z.number().int().positive().nullable().optional(),
   collectionId:      z.string().uuid().optional(),
   category:          z.string().min(1).optional(),
   isActive:          z.boolean().optional(),
@@ -54,7 +55,8 @@ async function fetchFullProduct(id: string) {
     .select({
       id: products.id, title: products.title, slug: products.slug,
       description: products.description, priceINR: products.priceINR,
-      compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
+      compareAtPriceINR: products.compareAtPriceINR, weightGrams: products.weightGrams,
+      collectionId: products.collectionId,
       isActive: products.isActive, isFeatured: products.isFeatured,
       isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
       newArrivalUntil: products.newArrivalUntil,

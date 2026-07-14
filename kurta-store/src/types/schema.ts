@@ -4,7 +4,7 @@
 
 export type Currency = 'INR' | 'USD' | 'EUR';
 export type SizeLabel = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
+export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'RTO_INITIATED' | 'RTO_DELIVERED' | 'CANCELLED' | 'REFUNDED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 export type DiscountType = 'PERCENT' | 'FIXED';
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'STAFF' | 'CUSTOMER';
@@ -52,6 +52,7 @@ export interface Product {
   description: string;
   priceINR: number;
   compareAtPriceINR?: number;
+  weightGrams?: number | null;
   collectionId: string;
   collection?: Pick<Collection, 'id' | 'name' | 'slug'>;
   variants: ProductSizeVariant[];
@@ -119,6 +120,15 @@ export interface Order {
   notes?: string;
   cancelledAt?: string;
   deliveredAt?: string;
+  // Shiprocket fulfillment linkage
+  shiprocketOrderId?: string | null;
+  shiprocketShipmentId?: string | null;
+  awbNumber?: string | null;
+  courierName?: string | null;
+  trackingUrl?: string | null;
+  shiprocketStatus?: string | null;
+  shippedAt?: string | null;
+  shiprocketPushError?: string | null;
   createdAt: string;
   updatedAt: string;
   // Relations

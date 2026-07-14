@@ -79,6 +79,7 @@ export const products = mysqlTable('products', {
   description:       text('description').notNull(),
   priceINR:          double('priceINR').notNull(),
   compareAtPriceINR: double('compareAtPriceINR'),
+  weightGrams:       int('weightGrams'),
   collectionId:      varchar('collectionId', { length: 36 }).notNull(),
   isActive:          boolean('isActive').default(true).notNull(),
   isFeatured:        boolean('isFeatured').default(false).notNull(),
@@ -132,7 +133,7 @@ export const orders = mysqlTable('orders', {
   userId:           varchar('userId', { length: 36 }),
   customerEmail:    varchar('customerEmail', { length: 255 }).notNull(),
   customerPhone:    varchar('customerPhone', { length: 20 }).notNull(),
-  status:           mysqlEnum('status', ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED']).default('PENDING').notNull(),
+  status:           mysqlEnum('status', ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RTO_INITIATED', 'RTO_DELIVERED', 'CANCELLED', 'REFUNDED']).default('PENDING').notNull(),
   paymentStatus:    mysqlEnum('paymentStatus', ['PENDING', 'PAID', 'FAILED', 'REFUNDED']).default('PENDING').notNull(),
   paymentGatewayId: varchar('paymentGatewayId', { length: 255 }),
   paymentMethod:    varchar('paymentMethod', { length: 100 }),
@@ -143,6 +144,15 @@ export const orders = mysqlTable('orders', {
   notes:            text('notes'),
   cancelledAt:      datetime('cancelledAt'),
   deliveredAt:      datetime('deliveredAt'),
+  // ── Shiprocket fulfillment linkage ──
+  shiprocketOrderId:    varchar('shiprocketOrderId', { length: 50 }),
+  shiprocketShipmentId: varchar('shiprocketShipmentId', { length: 50 }),
+  awbNumber:            varchar('awbNumber', { length: 50 }),
+  courierName:          varchar('courierName', { length: 100 }),
+  trackingUrl:          varchar('trackingUrl', { length: 500 }),
+  shiprocketStatus:     varchar('shiprocketStatus', { length: 100 }),
+  shippedAt:            datetime('shippedAt'),
+  shiprocketPushError:  text('shiprocketPushError'),
   createdAt:        datetime('createdAt').notNull().$defaultFn(() => new Date()),
   updatedAt:        datetime('updatedAt').notNull().$defaultFn(() => new Date()),
 }, (t) => [
@@ -154,6 +164,8 @@ export const orders = mysqlTable('orders', {
   // Idempotency: a gateway payment id backs at most one order (NULLs allowed for
   // orders without a captured payment).
   uniqueIndex('order_gateway_unique').on(t.paymentGatewayId),
+  index('order_shiprocket_order_idx').on(t.shiprocketOrderId),
+  index('order_awb_idx').on(t.awbNumber),
 ]);
 
 export const orderItems = mysqlTable('order_items', {

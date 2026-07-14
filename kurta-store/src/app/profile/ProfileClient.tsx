@@ -68,6 +68,19 @@ function getStatusColor(status: string) {
   }
 }
 
+function getFulfillmentStatusColor(status: string) {
+  switch (status) {
+    case 'SHIPPED':          return { bg: 'rgba(79,70,229,0.08)', color: '#4f46e5', border: 'rgba(79,70,229,0.2)' };
+    case 'OUT_FOR_DELIVERY': return { bg: 'rgba(37,99,235,0.08)', color: '#2563eb', border: 'rgba(37,99,235,0.2)' };
+    case 'DELIVERED':        return { bg: 'rgba(34,197,94,0.08)', color: '#16a34a', border: 'rgba(34,197,94,0.2)' };
+    case 'RTO_INITIATED':    return { bg: 'rgba(217,119,6,0.08)', color: '#d97706', border: 'rgba(217,119,6,0.2)' };
+    case 'RTO_DELIVERED':    return { bg: 'rgba(148,88,88,0.08)', color: '#945858', border: 'rgba(148,88,88,0.2)' };
+    case 'CANCELLED':        return { bg: 'rgba(220,38,38,0.08)', color: '#dc2626', border: 'rgba(220,38,38,0.2)' };
+    case 'REFUNDED':         return { bg: 'rgba(100,116,139,0.08)', color: '#64748b', border: 'rgba(100,116,139,0.2)' };
+    default:                 return { bg: 'rgba(15,42,91,0.06)', color: '#0F2A5B', border: 'rgba(15,42,91,0.12)' };
+  }
+}
+
 function getInitials(name?: string | null, email?: string | null) {
   if (name) {
     return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
@@ -103,7 +116,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
       setOrdersLoading(true);
       fetch(`/api/orders?email=${encodeURIComponent(user.email)}`)
         .then(r => r.json())
-        .then(data => setOrders(data.orders || []))
+        .then(data => setOrders(data.data || []))
         .catch(console.error)
         .finally(() => setOrdersLoading(false));
     }
@@ -477,6 +490,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {orders.map((order, i) => {
                     const statusStyle = getStatusColor(order.paymentStatus);
+                    const fulfillmentStyle = getFulfillmentStatusColor(order.status);
                     return (
                       <motion.div
                         key={order.id}
@@ -508,6 +522,17 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                               }}>
                                 {order.paymentStatus}
                               </span>
+                              {order.paymentStatus === 'PAID' && (
+                                <span style={{
+                                  padding: '3px 10px', borderRadius: '100px',
+                                  fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em',
+                                  fontFamily: 'var(--font-body)',
+                                  background: fulfillmentStyle.bg, color: fulfillmentStyle.color,
+                                  border: `1px solid ${fulfillmentStyle.border}`,
+                                }}>
+                                  {order.status.replace(/_/g, ' ')}
+                                </span>
+                              )}
                             </div>
                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.5, margin: '0 0 8px' }}>
                               {formatDate(order.createdAt)} · {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
@@ -524,6 +549,24 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                                 </p>
                               )}
                             </div>
+                            {(order.trackingUrl || order.awbNumber) && (
+                              <div style={{ marginTop: '10px' }}>
+                                {order.trackingUrl ? (
+                                  <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer" style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                    fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                                    textTransform: 'uppercase', letterSpacing: '0.1em',
+                                    color: '#4f46e5', textDecoration: 'none',
+                                  }}>
+                                    Track Package ↗
+                                  </a>
+                                ) : (
+                                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-brand-charcoal)', opacity: 0.45 }}>
+                                    {order.courierName ? `${order.courierName} · ` : ''}AWB {order.awbNumber}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--color-brand-charcoal)', margin: '0 0 4px', fontWeight: 400 }}>

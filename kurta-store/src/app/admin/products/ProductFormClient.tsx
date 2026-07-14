@@ -17,6 +17,7 @@ interface ProductForm {
   description: string;
   priceINR: string;
   compareAtPriceINR: string;
+  weightGrams: string;
   collectionId: string;
   isActive: boolean;
   isFeatured: boolean;
@@ -31,7 +32,7 @@ interface ProductForm {
 
 const emptyForm: ProductForm = {
   title: '', slug: '', description: '',
-  priceINR: '', compareAtPriceINR: '',
+  priceINR: '', compareAtPriceINR: '', weightGrams: '',
   collectionId: '', isActive: true, isFeatured: false,
   isBestseller: false, isNewArrival: false, newArrivalUntil: '',
   sizes: { XS: '0', S: '0', M: '0', L: '0', XL: '0', XXL: '0' },
@@ -93,6 +94,7 @@ export default function ProductFormClient(props: ProductFormClientProps) {
           description: p.description,
           priceINR: String(p.priceINR),
           compareAtPriceINR: p.compareAtPriceINR ? String(p.compareAtPriceINR) : '',
+          weightGrams: p.weightGrams ? String(p.weightGrams) : '',
           collectionId: p.collectionId || '',
           isActive: p.isActive,
           isFeatured: p.isFeatured,
@@ -132,6 +134,7 @@ export default function ProductFormClient(props: ProductFormClientProps) {
         description: form.description,
         priceINR: Number(form.priceINR),
         compareAtPriceINR: form.compareAtPriceINR ? Number(form.compareAtPriceINR) : null,
+        weightGrams: form.weightGrams ? Number(form.weightGrams) : null,
         collectionId: form.collectionId,
         isActive: form.isActive,
         isFeatured: form.isFeatured,
@@ -218,12 +221,15 @@ export default function ProductFormClient(props: ProductFormClientProps) {
                 />
               </FormField>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <FormField label="Price (₹)" required>
                   <input style={inputStyle} type="number" value={form.priceINR} onChange={(e) => setForm((f) => ({ ...f, priceINR: e.target.value }))} min="0" placeholder="2499" />
                 </FormField>
                 <FormField label="Compare-at Price (₹)" hint="Shown as struck-through">
                   <input style={inputStyle} type="number" value={form.compareAtPriceINR} onChange={(e) => setForm((f) => ({ ...f, compareAtPriceINR: e.target.value }))} min="0" placeholder="3999" />
+                </FormField>
+                <FormField label="Weight (grams)" hint="Used for Shiprocket shipping">
+                  <input style={inputStyle} type="number" value={form.weightGrams} onChange={(e) => setForm((f) => ({ ...f, weightGrams: e.target.value }))} min="0" placeholder="300" />
                 </FormField>
               </div>
 

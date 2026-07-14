@@ -24,6 +24,7 @@ const CreateProductSchema = z.object({
   description:       z.string().min(1),
   priceINR:          z.number().positive(),
   compareAtPriceINR: z.number().positive().nullable().optional(),
+  weightGrams:       z.number().int().positive().nullable().optional(),
   collectionId:      z.string().uuid().optional(),
   category:          z.string().min(1).optional(),
   isActive:          z.boolean().optional().default(true),
@@ -158,7 +159,8 @@ export async function POST(request: NextRequest) {
       .select({
         id: products.id, title: products.title, slug: products.slug,
         description: products.description, priceINR: products.priceINR,
-        compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
+        compareAtPriceINR: products.compareAtPriceINR, weightGrams: products.weightGrams,
+        collectionId: products.collectionId,
         isActive: products.isActive, isFeatured: products.isFeatured,
         isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
         newArrivalUntil: products.newArrivalUntil,

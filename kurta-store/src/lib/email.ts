@@ -211,6 +211,88 @@ export function renderLowStockAlertEmail(
   return shell(content);
 }
 
+// ─── Shipment Status Updates ─────────────────────────────────────────────────
+
+export interface ShipmentEmailOrder {
+  orderNumber: string;
+  customerEmail: string;
+  awbNumber?: string | null;
+  courierName?: string | null;
+  trackingUrl?: string | null;
+}
+
+function trackingCta(order: ShipmentEmailOrder): string {
+  const details = [
+    order.courierName ? `<span style="font-size:12px;color:#888;">Courier: <strong style="color:#0f2a5b;">${order.courierName}</strong></span>` : '',
+    order.awbNumber   ? `<span style="font-size:12px;color:#888;">AWB: <strong style="color:#0f2a5b;">${order.awbNumber}</strong></span>` : '',
+  ].filter(Boolean).join('<br>');
+
+  return `
+    ${details ? `<div style="margin:20px 0;padding:14px 16px;background:#faf8f5;border-radius:8px;border:1px solid #ede9df;text-align:center;line-height:1.8;">${details}</div>` : ''}
+    ${order.trackingUrl ? `
+    <div style="margin-top:24px;text-align:center;">
+      <a href="${order.trackingUrl}" style="display:inline-block;padding:14px 32px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
+        Track Package
+      </a>
+    </div>` : ''}
+  `;
+}
+
+export function renderOrderShippedEmail(order: ShipmentEmailOrder): string {
+  const content = `
+    <h2 style="font-family:Georgia,serif;font-weight:normal;font-size:26px;color:#0f2a5b;margin:0 0 8px;">
+      Your Order Has Shipped
+    </h2>
+    <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
+      Good news — your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> is on its way to you.
+    </p>
+    ${trackingCta(order)}
+  `;
+  return shell(content);
+}
+
+export function renderOutForDeliveryEmail(order: ShipmentEmailOrder): string {
+  const content = `
+    <h2 style="font-family:Georgia,serif;font-weight:normal;font-size:26px;color:#0f2a5b;margin:0 0 8px;">
+      Out for Delivery Today
+    </h2>
+    <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
+      Your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> is out for delivery today. Please be available to receive it.
+    </p>
+    ${trackingCta(order)}
+  `;
+  return shell(content);
+}
+
+export function renderOrderDeliveredEmail(order: ShipmentEmailOrder): string {
+  const content = `
+    <h2 style="font-family:Georgia,serif;font-weight:normal;font-size:26px;color:#0f2a5b;margin:0 0 8px;">
+      Delivered ✓
+    </h2>
+    <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
+      Your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> has been delivered. We hope you love it — thank you for shopping with Minara Creation.
+    </p>
+  `;
+  return shell(content);
+}
+
+export function renderDeliveryIssueEmail(order: ShipmentEmailOrder): string {
+  const content = `
+    <h2 style="font-family:Georgia,serif;font-weight:normal;font-size:24px;color:#0f2a5b;margin:0 0 8px;">
+      We Couldn't Complete Your Delivery
+    </h2>
+    <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
+      The courier was unable to deliver your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> and it is being returned to us.
+      If you'd still like this order, please reach out and we'll help arrange redelivery.
+    </p>
+    ${trackingCta(order)}
+    <p style="margin-top:24px;font-size:12px;color:#888;text-align:center;">
+      Questions? Reply to this email or write to support@labelminara.com
+    </p>
+  `;
+  return shell(content);
+}
+
 // ─── Abandon Cart ────────────────────────────────────────────────────────────
 
 export function renderAbandonCartEmail(

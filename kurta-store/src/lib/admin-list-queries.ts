@@ -100,7 +100,8 @@ export async function getProductsList(raw: ProductsListParams) {
     db.select({
       id: products.id, title: products.title, slug: products.slug,
       description: products.description, priceINR: products.priceINR,
-      compareAtPriceINR: products.compareAtPriceINR, collectionId: products.collectionId,
+      compareAtPriceINR: products.compareAtPriceINR, weightGrams: products.weightGrams,
+      collectionId: products.collectionId,
       isActive: products.isActive, isFeatured: products.isFeatured,
       isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
       newArrivalUntil: products.newArrivalUntil,
@@ -310,6 +311,7 @@ function serializeOrder(o: any) {
     updatedAt:   o.updatedAt instanceof Date ? o.updatedAt.toISOString() : o.updatedAt,
     cancelledAt: o.cancelledAt instanceof Date ? o.cancelledAt.toISOString() : o.cancelledAt ?? null,
     deliveredAt: o.deliveredAt instanceof Date ? o.deliveredAt.toISOString() : o.deliveredAt ?? null,
+    shippedAt:   o.shippedAt instanceof Date ? o.shippedAt.toISOString() : o.shippedAt ?? null,
   };
 }
 
@@ -357,6 +359,10 @@ export async function getOrdersAdminList(raw: OrdersAdminListParams) {
       cancelledAt: orders.cancelledAt, deliveredAt: orders.deliveredAt,
       paymentGatewayId: orders.paymentGatewayId, paymentMethod: orders.paymentMethod,
       notes: orders.notes,
+      shiprocketOrderId: orders.shiprocketOrderId, shiprocketShipmentId: orders.shiprocketShipmentId,
+      awbNumber: orders.awbNumber, courierName: orders.courierName, trackingUrl: orders.trackingUrl,
+      shiprocketStatus: orders.shiprocketStatus, shippedAt: orders.shippedAt,
+      shiprocketPushError: orders.shiprocketPushError,
     })
       .from(orders)
       .where(conditions)
