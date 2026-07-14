@@ -220,7 +220,7 @@ export default function HomeClient({
           })}
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(12,8,6,0.72) 0%, rgba(23,57,115,0.25) 55%, rgba(23,57,115,0.08) 100%)' }} />
 
-          <div className="hero-content" style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '820px', margin: '0 auto', padding: '0 48px' }}>
+          <div className="hero-content showcase-inner" style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '820px', margin: '0 auto', padding: '0 48px' }}>
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
               className="hero-card"
               style={{
@@ -448,7 +448,7 @@ export default function HomeClient({
 
         {/* ── EDITORIAL STORIES ── */}
         <section className="sec-stories" style={{ padding: '80px 0', backgroundColor: '#F5F2EC' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+          <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <div style={{ textAlign: 'center', maxWidth: '480px', margin: '0 auto 48px' }}>
               <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', marginBottom: '12px' }}>Editorial Stories</p>
               <h2 className="scroll-heading" style={{ fontSize: 'clamp(1.8rem,2.5vw,2.5rem)', fontWeight: 300, color: '#1A1A1A', margin: '0 0 16px' }}>Stories in Weaves</h2>
@@ -604,7 +604,7 @@ export default function HomeClient({
 
         {/* ── NEWSLETTER ── */}
         <section style={{ padding: '80px 0', backgroundColor: '#FAF8F5' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+          <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
               className="newsletter-card"
               style={{ textAlign: 'center', padding: '64px 48px', backgroundColor: '#F0EBE3', border: '1px solid rgba(196,172,112,0.22)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}>
