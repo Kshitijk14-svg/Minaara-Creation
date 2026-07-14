@@ -222,6 +222,7 @@ export default function HomeClient({
 
           <div className="hero-content" style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '820px', margin: '0 auto', padding: '0 48px' }}>
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+              className="hero-card"
               style={{
                 backgroundColor: 'rgba(244, 236, 225, 0.85)',
                 border: '1px solid rgba(196, 172, 112, 0.28)',
@@ -237,6 +238,7 @@ export default function HomeClient({
                 <span style={{ display: 'inline-block', width: '28px', height: '1px', backgroundColor: 'rgba(196,172,112,0.55)' }} />
               </motion.p>
               <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+                className="hero-heading"
                 style={{ fontSize: 'clamp(3rem,6vw,6rem)', fontWeight: 300, lineHeight: 1.0, letterSpacing: '-0.02em', color: '#1A1A1A', marginBottom: '20px' }}>
                 {HERO.headline}{' '}<em style={{ color: '#C4AC70', fontStyle: 'italic' }}>{HERO.headlineEmphasis}</em>
               </motion.h1>
@@ -271,6 +273,7 @@ export default function HomeClient({
         {/* ── USP Strip ── */}
         <div style={{ position: 'relative', zIndex: 10, margin: '-24px auto 0', maxWidth: '1104px', padding: '0 24px' }}>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="usp-strip"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -297,7 +300,7 @@ export default function HomeClient({
         </div>
 
         {/* ── BRAND MARQUEE ── */}
-        <section style={{ padding: '70px 0', backgroundColor: '#FAF8F5', overflow: 'hidden', borderBottom: '1px solid #E6E2D8' }}>
+        <section className="sec-marquee" style={{ padding: '70px 0', backgroundColor: '#FAF8F5', overflow: 'hidden', borderBottom: '1px solid #E6E2D8' }}>
           <div style={{ marginBottom: '16px', overflow: 'hidden' }}>
             <div className="marquee-row-ltr" style={{ display: 'inline-flex', whiteSpace: 'nowrap', willChange: 'transform' }}>
               {Array.from({ length: 3 }).map((_, ri) =>
@@ -327,7 +330,7 @@ export default function HomeClient({
         </section>
 
         {/* ── COLLECTIONS SHOWCASE ── */}
-        <section id="collection" style={{ padding: '80px 0' }}>
+        <section id="collection" className="sec-collection" style={{ padding: '80px 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
               <div>
@@ -357,7 +360,7 @@ export default function HomeClient({
 
         {/* ── NEW ARRIVALS ── */}
         {NEW_ARRIVALS.length > 0 && (
-          <section style={{ padding: '80px 0', backgroundColor: '#FAF8F5' }}>
+          <section className="sec-new-arrivals" style={{ padding: '80px 0', backgroundColor: '#FAF8F5' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
@@ -393,7 +396,7 @@ export default function HomeClient({
 
         {/* ── HORIZONTAL PINNED — FEATURED PIECES ── */}
         {H_FEATURES.length > 0 && (
-          <div ref={hFeatRef} style={{ position: 'relative', backgroundColor: '#0A0A0A', overflow: 'hidden' }}>
+          <div ref={hFeatRef} className="sec-featured" style={{ position: 'relative', backgroundColor: '#0A0A0A', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(50,130,255,0.45) 0%, rgba(50,130,255,0) 70%)', top: '-10%', left: '10%', pointerEvents: 'none', zIndex: 1 }} />
             <div style={{ position: 'absolute', width: '500px', height: '500px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(196,172,112,0.4) 0%, rgba(196,172,112,0) 70%)', bottom: '10%', right: '15%', pointerEvents: 'none', zIndex: 1 }} />
 
@@ -425,7 +428,7 @@ export default function HomeClient({
         )}
 
         {/* ── LOOKBOOK BANNER — Parallax ── */}
-        <section style={{ position: 'relative', height: '72vh', overflow: 'hidden', backgroundColor: '#1A1A1A' }}>
+        <section className="sec-haveli" style={{ position: 'relative', height: '72vh', overflow: 'hidden', backgroundColor: '#1A1A1A', marginTop: '48px' }}>
           <div ref={lookbookImgRef} style={{ position: 'absolute', inset: '-12%', zIndex: 0 }}>
             <Image src={HAVELI.imageUrl} alt={HAVELI.heading} fill className="object-cover object-center" sizes="100vw" style={{ opacity: 0.82 }} />
           </div>
@@ -444,7 +447,7 @@ export default function HomeClient({
         </section>
 
         {/* ── EDITORIAL STORIES ── */}
-        <section style={{ padding: '80px 0', backgroundColor: '#F5F2EC' }}>
+        <section className="sec-stories" style={{ padding: '80px 0', backgroundColor: '#F5F2EC' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <div style={{ textAlign: 'center', maxWidth: '480px', margin: '0 auto 48px' }}>
               <p className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', marginBottom: '12px' }}>Editorial Stories</p>
@@ -466,7 +469,7 @@ export default function HomeClient({
 
         {/* ── BESTSELLERS ── */}
         {BESTSELLERS.length > 0 && (
-          <section style={{ padding: '80px 0', background: 'linear-gradient(to bottom, #FAF8F5, #F5F2EC)' }}>
+          <section className="sec-bestsellers" style={{ padding: '80px 0', background: 'linear-gradient(to bottom, #FAF8F5, #F5F2EC)' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
@@ -497,11 +500,12 @@ export default function HomeClient({
         {/* ── STATS COUNTER ── */}
         <section ref={statsRef} style={{ padding: '80px 0', position: 'relative', backgroundColor: 'rgba(15, 20, 40, 0.92)', borderTop: '1px solid rgba(196,172,112,0.15)', borderBottom: '1px solid rgba(196,172,112,0.15)' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '32px', textAlign: 'center' }}>
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '32px', textAlign: 'center' }}>
               {STATS.map((stat, i) => (
-                <div key={i} className="slide-left"
+                <div key={i} className="slide-left stats-box"
                   style={{ border: '1px solid rgba(196, 172, 112, 0.18)', borderRadius: '16px', padding: '36px 24px' }}>
                   <div ref={(el) => { statsValueRefs.current[i] = el; }}
+                    className="stats-value"
                     style={{ fontSize: 'clamp(2.5rem,4vw,4rem)', fontWeight: 300, color: '#C4AC70', lineHeight: 1, marginBottom: '10px' }}>
                     0{stat.suffix}
                   </div>
@@ -602,6 +606,7 @@ export default function HomeClient({
         <section style={{ padding: '80px 0', backgroundColor: '#FAF8F5' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              className="newsletter-card"
               style={{ textAlign: 'center', padding: '64px 48px', backgroundColor: '#F0EBE3', border: '1px solid rgba(196,172,112,0.22)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(196,172,112,0.06) 0%, transparent 60%)', pointerEvents: 'none' }} />
               <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.22em', color: '#C4AC70', marginBottom: '16px' }}>✦ Inner Circle</p>
@@ -740,14 +745,43 @@ export default function HomeClient({
             [style*="padding: 80px 0"] { padding: 44px 0 !important; }
             [style*="padding: 70px 0"] { padding: 44px 0 !important; }
 
+            /* Hero */
+            .hero-heading { font-size: clamp(2.1rem, 9vw, 3.25rem) !important; }
+            .hero-card { padding: 32px 24px !important; }
+
+            /* Trust-badge strip removed on mobile — cramped in pill form on narrow screens */
+            .usp-strip { display: none !important; }
+
+            /* Section-to-section gap tuning (overrides the blanket padding rule above) */
+            .sec-marquee { padding-bottom: 24px !important; }
+            .sec-collection { padding-top: 24px !important; padding-bottom: 24px !important; }
+            .sec-new-arrivals { padding-top: 24px !important; padding-bottom: 24px !important; }
+            .feat-title-wrap { padding: 24px 24px 20px !important; }
+            .sec-stories { padding-top: 20px !important; padding-bottom: 24px !important; }
+            .sec-bestsellers { padding-top: 24px !important; }
+
+            /* Stats counters */
+            .stats-grid { gap: 16px !important; }
+            .stats-box { padding: 20px 12px !important; }
+            .stats-value { font-size: clamp(1.75rem, 7vw, 2.5rem) !important; }
+
             .about-panel-grid {
               grid-template-columns: 1fr !important;
               gap: 20px !important;
               padding: 20px !important;
             }
+            .about-panel-grid h3 { margin-bottom: 12px !important; }
+            .about-panel-grid p { margin-bottom: 16px !important; }
             .about-panel-img-wrap {
-              height: 240px !important;
+              height: 180px !important;
             }
+
+            /* Newsletter card */
+            .newsletter-card { padding: 40px 24px !important; }
+          }
+
+          @media (max-width: 400px) {
+            .stats-grid { grid-template-columns: 1fr !important; }
           }
 
           .carousel-on-dark button[aria-label^="Go to slide"] {

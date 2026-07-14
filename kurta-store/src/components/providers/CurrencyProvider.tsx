@@ -14,42 +14,7 @@ interface CurrencyContextValue {
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 const CACHE_KEY = 'currency_rates_local';
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-
-async function fetchRatesFromExchangeApi(): Promise<CurrencyRates> {
-  const apiKey = process.env.NEXT_PUBLIC_EXCHANGE_RATE_API_KEY;
-  const url = apiKey
-    ? `https://v6.exchangerate-api.com/v6/${apiKey}/latest/INR`
-    : 'https://api.exchangerate-api.com/v4/latest/INR';
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`Exchange rate API error: ${res.status}, using fallback rates.`);
-      return { INR: 1, USD: 0.012, EUR: 0.011, fetchedAt: Date.now() };
-    }
-    const data = (await res.json()) as {
-      rates: Record<string, number>;
-      conversion_rates?: Record<string, number>;
-    };
-
-    const rateMap = data.conversion_rates ?? data.rates;
-    if (!rateMap?.USD || !rateMap?.EUR || !rateMap?.INR) {
-      console.warn('Unexpected exchange rate API response structure, using fallback rates.');
-      return { INR: 1, USD: 0.012, EUR: 0.011, fetchedAt: Date.now() };
-    }
-
-    return {
-      INR: rateMap.INR ?? 1,
-      USD: rateMap.USD,
-      EUR: rateMap.EUR,
-      fetchedAt: Date.now(),
-    };
-  } catch (err) {
-    console.warn('Failed to fetch exchange rates (network error), using fallback rates.');
-    return { INR: 1, USD: 0.012, EUR: 0.011, fetchedAt: Date.now() };
-  }
-}
+const FALLBACK_RATES: CurrencyRates = { INR: 1, USD: 0.012, EUR: 0.011, fetchedAt: Date.now() };
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>('INR');
@@ -61,55 +26,33 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
     async function loadRates() {
       try {
-        // 1. Check Upstash Redis via our API route first
-        const redisRes = await fetch('/api/currency-rates');
-        if (redisRes.ok) {
-          const cached = (await redisRes.json()) as CurrencyRates;
-          const isStale = Date.now() - cached.fetchedAt > TWENTY_FOUR_HOURS_MS;
-          if (!isStale) {
-            if (!cancelled) {
-              setRates(cached);
-              setIsLoading(false);
-            }
-            return;
-          }
+        // 1. Ask our API route — it serves the Redis cache, or (on a miss)
+        // fetches live rates itself and warms the cache server-side.
+        const res = await fetch('/api/currency-rates');
+        if (res.ok) {
+          const rates = (await res.json()) as CurrencyRates;
+          localStorage.setItem(CACHE_KEY, JSON.stringify(rates));
+          if (!cancelled) setRates(rates);
+          return;
         }
 
-        // 2. Check localStorage for stale-while-revalidate
+        // 2. Server route failed (network down, API down, etc.) — fall back
+        // to whatever we last cached locally, even if stale.
         const localCached = localStorage.getItem(CACHE_KEY);
         if (localCached) {
           const parsed = JSON.parse(localCached) as CurrencyRates;
-          const isStale = Date.now() - parsed.fetchedAt > TWENTY_FOUR_HOURS_MS;
-          if (!isStale) {
-            if (!cancelled) {
-              setRates(parsed);
-              setIsLoading(false);
-            }
-            return;
-          }
+          if (!cancelled) setRates(parsed);
+          return;
         }
 
-        // 3. Fetch fresh rates
-        const freshRates = await fetchRatesFromExchangeApi();
-        localStorage.setItem(CACHE_KEY, JSON.stringify(freshRates));
-
-        // Store in Upstash via our API route
-        await fetch('/api/currency-rates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(freshRates),
-        });
-
-        if (!cancelled) {
-          setRates(freshRates);
-        }
+        // 3. Nothing available anywhere — approximate fallback so the app doesn't break.
+        if (!cancelled) setRates(FALLBACK_RATES);
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
           console.error('[CurrencyProvider] Failed to load exchange rates:', err);
         }
-        // Fallback rates (approximate) so app doesn't break without an API key
         if (!cancelled) {
-          setRates({ INR: 1, USD: 0.012, EUR: 0.011, fetchedAt: Date.now() });
+          setRates(FALLBACK_RATES);
         }
       } finally {
         if (!cancelled) setIsLoading(false);

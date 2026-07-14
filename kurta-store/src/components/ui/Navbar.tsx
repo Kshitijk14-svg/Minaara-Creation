@@ -86,7 +86,7 @@ export function Navbar({ session }: NavbarProps) {
       <nav
         style={{
           position: 'sticky', top: 0, zIndex: 60,
-          background: transparentNav ? 'linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%)' : 'rgba(250, 248, 245, 0.98)',
+          background: transparentNav ? 'linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%)' : 'rgba(244, 236, 225, 0.98)',
           borderBottom: transparentNav ? '1px solid transparent' : '1px solid var(--glass-border)',
           transform: scrollDir === 'down' && !isSearchOpen ? 'translateY(-100%)' : 'translateY(0)',
           transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)'
@@ -95,7 +95,7 @@ export function Navbar({ session }: NavbarProps) {
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }} className="flex items-center justify-between h-16 w-full">
 
           {/* Left Navigation Items */}
-          <div className="flex-1 flex items-center gap-4 md:gap-8">
+          <div className="flex items-center gap-4 md:flex-1 md:gap-8">
             <div className="navbar-logo-mobile">
               <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
                 <Image src="/minaara-logo.jpeg" alt="Minara" width={40} height={40} style={{ objectFit: 'contain', borderRadius: '4px' }} />
@@ -136,24 +136,8 @@ export function Navbar({ session }: NavbarProps) {
             </div>
           </div>
 
-          {/* Logo Center (desktop) / Search bar (mobile) */}
-          <div className="flex-1 flex justify-center">
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              aria-label="Open search"
-              className="md:hidden flex items-center"
-              style={{
-                width: '100%', gap: '10px',
-                padding: '10px 14px', borderRadius: '100px',
-                border: '1px solid var(--color-brand-mist)', backgroundColor: 'rgba(255,255,255,0.6)',
-                cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <span style={{ color: '#1A1A1A', opacity: 0.45, display: 'flex' }}><SearchIcon /></span>
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#1A1A1A', opacity: 0.45, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Search products...
-              </span>
-            </button>
+          {/* Logo Center (desktop only) */}
+          <div className="hidden md:flex md:flex-1 justify-center">
             <div className="navbar-logo-desktop">
               <Link href="/" style={{ textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: '1.875rem', color: '#1A1A1A', letterSpacing: '0.05em', fontWeight: 300 }}>
                 Label Minara
@@ -162,16 +146,26 @@ export function Navbar({ session }: NavbarProps) {
           </div>
 
           {/* Right Navigation Items */}
-          <div className="flex-1 flex justify-end items-center">
-          <button
-            onClick={() => setIsMenuOpen(true)}
-            aria-label="Open menu"
-            aria-expanded={isMenuOpen}
-            className="md:hidden flex items-center"
-            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px', color: '#1A1A1A', opacity: 0.75 }}
-          >
-            <HamburgerIcon />
-          </button>
+          <div className="flex items-center justify-end md:flex-1">
+          <div className="flex items-center gap-1 md:hidden">
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              aria-label="Open search"
+              className="flex items-center"
+              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px', color: '#1A1A1A', opacity: 0.75 }}
+            >
+              <SearchIcon />
+            </button>
+            <button
+              onClick={() => setIsMenuOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={isMenuOpen}
+              className="flex items-center"
+              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px', color: '#1A1A1A', opacity: 0.75 }}
+            >
+              <HamburgerIcon />
+            </button>
+          </div>
           <div className="hidden md:flex items-center gap-4 md:gap-6">
 
             {/* Custom Currency Dropdown */}
