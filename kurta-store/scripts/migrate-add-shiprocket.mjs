@@ -3,8 +3,19 @@
 // and widens the `orders.status` enum with courier-level checkpoints. Mirrors
 // scripts/migrate-add-haveli.mjs — idempotent, safe to rerun.
 // Usage: node scripts/migrate-add-shiprocket.mjs
-import 'dotenv/config';
+// Bare `dotenv/config` only loads `.env`, not `.env.local` — but production
+// (per OVH-deploy.md) keeps everything in `.env.local`. Load both, mirroring
+// Next.js's own precedence (.env.local wins; dotenv's config() never
+// overrides a var that's already set, so calling .env.local first is enough).
+import { config as loadEnv } from 'dotenv';
+loadEnv({ path: '.env.local' });
+loadEnv();
 import mysql from 'mysql2/promise';
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is not set. Checked .env.local and .env in the current directory (' + process.cwd() + ').');
+  process.exit(1);
+}
 
 const ORDER_COLUMNS = [
   { name: 'shiprocketOrderId',    ddl: 'varchar(50) NULL' },

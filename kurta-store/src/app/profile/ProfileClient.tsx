@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Order } from '@/types/schema';
+import { isSafeHttpUrl } from '@/lib/url-safety';
 
 type Tab = 'overview' | 'orders' | 'settings';
 
@@ -551,7 +552,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                             </div>
                             {(order.trackingUrl || order.awbNumber) && (
                               <div style={{ marginTop: '10px' }}>
-                                {order.trackingUrl ? (
+                                {isSafeHttpUrl(order.trackingUrl) ? (
                                   <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer" style={{
                                     display: 'inline-flex', alignItems: 'center', gap: '6px',
                                     fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,

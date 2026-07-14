@@ -1,5 +1,16 @@
 import nodemailer from 'nodemailer';
 import type { Order } from '@/types/schema';
+import { isSafeHttpUrl } from '@/lib/url-safety';
+
+/** Escapes HTML-significant characters before interpolating into a raw HTML string. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // ─── Transport ───────────────────────────────────────────────────────────────
 
@@ -118,7 +129,7 @@ export function renderOrderConfirmationEmail(order: Order): string {
       Order Confirmed ✓
     </h2>
     <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 24px;">
-      Thank you for shopping with us! Your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> has been received and is being processed.
+      Thank you for shopping with us! Your order <strong style="color:#0f2a5b;">${escapeHtml(order.orderNumber)}</strong> has been received and is being processed.
     </p>
 
     <!-- Order Items -->
@@ -223,15 +234,18 @@ export interface ShipmentEmailOrder {
 
 function trackingCta(order: ShipmentEmailOrder): string {
   const details = [
-    order.courierName ? `<span style="font-size:12px;color:#888;">Courier: <strong style="color:#0f2a5b;">${order.courierName}</strong></span>` : '',
-    order.awbNumber   ? `<span style="font-size:12px;color:#888;">AWB: <strong style="color:#0f2a5b;">${order.awbNumber}</strong></span>` : '',
+    order.courierName ? `<span style="font-size:12px;color:#888;">Courier: <strong style="color:#0f2a5b;">${escapeHtml(order.courierName)}</strong></span>` : '',
+    order.awbNumber   ? `<span style="font-size:12px;color:#888;">AWB: <strong style="color:#0f2a5b;">${escapeHtml(order.awbNumber)}</strong></span>` : '',
   ].filter(Boolean).join('<br>');
+
+  // Reject non-http(s) schemes (javascript:, data:, etc.) before use in an href.
+  const safeTrackingUrl = isSafeHttpUrl(order.trackingUrl) ? order.trackingUrl : null;
 
   return `
     ${details ? `<div style="margin:20px 0;padding:14px 16px;background:#faf8f5;border-radius:8px;border:1px solid #ede9df;text-align:center;line-height:1.8;">${details}</div>` : ''}
-    ${order.trackingUrl ? `
+    ${safeTrackingUrl ? `
     <div style="margin-top:24px;text-align:center;">
-      <a href="${order.trackingUrl}" style="display:inline-block;padding:14px 32px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
+      <a href="${escapeHtml(safeTrackingUrl)}" style="display:inline-block;padding:14px 32px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
         Track Package
       </a>
     </div>` : ''}
@@ -244,7 +258,7 @@ export function renderOrderShippedEmail(order: ShipmentEmailOrder): string {
       Your Order Has Shipped
     </h2>
     <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
-      Good news — your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> is on its way to you.
+      Good news — your order <strong style="color:#0f2a5b;">${escapeHtml(order.orderNumber)}</strong> is on its way to you.
     </p>
     ${trackingCta(order)}
   `;
@@ -257,7 +271,7 @@ export function renderOutForDeliveryEmail(order: ShipmentEmailOrder): string {
       Out for Delivery Today
     </h2>
     <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
-      Your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> is out for delivery today. Please be available to receive it.
+      Your order <strong style="color:#0f2a5b;">${escapeHtml(order.orderNumber)}</strong> is out for delivery today. Please be available to receive it.
     </p>
     ${trackingCta(order)}
   `;
@@ -270,7 +284,7 @@ export function renderOrderDeliveredEmail(order: ShipmentEmailOrder): string {
       Delivered ✓
     </h2>
     <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
-      Your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> has been delivered. We hope you love it — thank you for shopping with Minara Creation.
+      Your order <strong style="color:#0f2a5b;">${escapeHtml(order.orderNumber)}</strong> has been delivered. We hope you love it — thank you for shopping with Minara Creation.
     </p>
   `;
   return shell(content);
@@ -282,7 +296,7 @@ export function renderDeliveryIssueEmail(order: ShipmentEmailOrder): string {
       We Couldn't Complete Your Delivery
     </h2>
     <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
-      The courier was unable to deliver your order <strong style="color:#0f2a5b;">${order.orderNumber}</strong> and it is being returned to us.
+      The courier was unable to deliver your order <strong style="color:#0f2a5b;">${escapeHtml(order.orderNumber)}</strong> and it is being returned to us.
       If you'd still like this order, please reach out and we'll help arrange redelivery.
     </p>
     ${trackingCta(order)}

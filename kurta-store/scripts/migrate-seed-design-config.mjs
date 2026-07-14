@@ -3,8 +3,14 @@
 // falls back to src/lib/design-defaults.ts on the public pages, so this
 // only needs to satisfy heroBanners' NOT NULL constraint. Idempotent —
 // safe to rerun.
-// Usage: DOTENV_CONFIG_PATH=.env.local node scripts/migrate-seed-design-config.mjs
-import 'dotenv/config';
+// Usage: node scripts/migrate-seed-design-config.mjs
+// Bare `dotenv/config` only loads `.env`, not `.env.local` — but production
+// (per OVH-deploy.md) keeps everything in .env.local. Load both, mirroring
+// Next.js's own precedence (.env.local wins; dotenv's config() never
+// overrides a var that's already set, so calling .env.local first is enough).
+import { config as loadEnv } from 'dotenv';
+loadEnv({ path: '.env.local' });
+loadEnv();
 import mysql from 'mysql2/promise';
 
 const conn = await mysql.createConnection(process.env.DATABASE_URL);

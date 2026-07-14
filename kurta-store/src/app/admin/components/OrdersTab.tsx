@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Order, OrderStatus, PaymentStatus } from '@/types/schema';
 import { localResize } from '@/lib/media';
+import { isSafeHttpUrl } from '@/lib/url-safety';
 import AdminTable, { Td } from './shared/AdminTable';
 import ConfirmInline from './shared/ConfirmInline';
 import FormField, { inputStyle, selectStyle } from './shared/FormField';
@@ -353,7 +354,7 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                               </span>
                                             </div>
                                           ))}
-                                          {(detailOrder || order).trackingUrl && (
+                                          {isSafeHttpUrl((detailOrder || order).trackingUrl) && (
                                             <a href={(detailOrder || order).trackingUrl!} target="_blank" rel="noopener noreferrer"
                                               style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: '#4f46e5', marginTop: '4px' }}>
                                               Track shipment ↗

@@ -15,6 +15,7 @@ import { orders, orderItems, shippingAddresses, products } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { cacheGet, cacheSet, invalidateTags, CacheTags } from '@/lib/cache';
 import { sendEmail, renderOrderShippedEmail, renderOutForDeliveryEmail, renderOrderDeliveredEmail, renderDeliveryIssueEmail } from '@/lib/email';
+import { isSafeHttpUrl } from '@/lib/url-safety';
 import type { OrderStatus } from '@/types/schema';
 
 const TOKEN_CACHE_KEY = 'shiprocket:token';
@@ -243,7 +244,10 @@ export interface IncomingStatusUpdate {
 }
 
 export async function applyIncomingStatusUpdate(input: IncomingStatusUpdate): Promise<void> {
-  const { shiprocketOrderId, orderNumber, rawStatus, awb, courierName, trackingUrl } = input;
+  const { shiprocketOrderId, orderNumber, rawStatus, awb, courierName } = input;
+  // Reject non-http(s) schemes (javascript:, data:, etc.) before this can ever
+  // reach a rendered <a href> in the admin panel, customer profile, or emails.
+  const trackingUrl = isSafeHttpUrl(input.trackingUrl) ? input.trackingUrl : null;
 
   let order;
   if (shiprocketOrderId) {
