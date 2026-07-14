@@ -179,19 +179,19 @@ export default function HomeClient({
       <NarrativeLoader isLoading={loaderVisible} />
 
       {/* ── Announcement Ticker ── */}
-      <div style={{ backgroundColor: 'rgba(23, 57, 115, 0.88)', borderBottom: '1px solid rgba(196, 172, 112, 0.22)', overflow: 'hidden', position: 'relative', zIndex: 50 }}>
-        <div style={{ padding: '8px 0', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#F4ECE1' }}>
-          <div className="animate-ticker" style={{ display: 'inline-flex', whiteSpace: 'nowrap' }}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <span key={i} style={{ padding: '0 40px' }}>
-                ✦ {designConfig?.promoBannerText ?? 'Free Shipping on Orders Above ₹2000'}
-                &nbsp;&nbsp;✦ 10% Off First Order — Code: WELCOME10
-                &nbsp;&nbsp;✦ Handcrafted with Natural Organic Dyes
-              </span>
-            ))}
+      {designConfig?.promoBannerText && (
+        <div style={{ backgroundColor: 'rgba(23, 57, 115, 0.88)', borderBottom: '1px solid rgba(196, 172, 112, 0.22)', overflow: 'hidden', position: 'relative', zIndex: 50 }}>
+          <div style={{ padding: '8px 0', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#F4ECE1' }}>
+            <div className="animate-ticker" style={{ display: 'inline-flex', whiteSpace: 'nowrap' }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <span key={i} style={{ padding: '0 40px' }}>
+                  ✦ {designConfig.promoBannerText}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div style={{ overflowX: 'hidden' }}>
         {/* ── HERO ── */}
