@@ -153,7 +153,7 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (err) {
-    if (process.env.NODE_ENV === 'development') console.error('[GET /api/config/design]', err);
+    console.error('[GET /api/config/design]', err);
     return NextResponse.json({ error: 'Failed to fetch design config' }, { status: 500 });
   }
 }
@@ -215,7 +215,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(rowToSchema(updated));
   } catch (err) {
-    if (process.env.NODE_ENV === 'development') console.error('[PATCH /api/config/design]', err);
+    console.error('[PATCH /api/config/design]', err);
     return NextResponse.json({ error: 'Failed to update design config' }, { status: 500 });
   }
 }
