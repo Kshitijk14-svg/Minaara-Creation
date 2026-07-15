@@ -88,14 +88,11 @@ export default function CartPage() {
     return `${sym[currency] ?? ''}${c.toFixed(currency === 'INR' ? 0 : 2)}`;
   }, [convertPrice, currency]);
 
-  // Shipping calculation (Free over ₹2000 INR)
-  const shippingINR = subtotalINR >= 2000 || subtotalINR === 0 ? 0 : 150;
-  
   // Coupon discount calculation
   const discountINR = subtotalINR * (discountPercent / 100);
-  
-  // Grand total in INR
-  const totalINR = Math.max(0, subtotalINR - discountINR + shippingINR);
+
+  // Grand total in INR (delivery charges are calculated by Shiprocket at checkout, once a delivery location is entered)
+  const totalINR = Math.max(0, subtotalINR - discountINR);
 
   // Apply coupon handler
   const handleApplyCoupon = async (e: React.FormEvent) => {
@@ -481,15 +478,8 @@ export default function CartPage() {
                       <span style={{ fontWeight: 500, color: 'var(--color-brand-charcoal)' }}>{fmt(subtotalINR)}</span>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontFamily: 'var(--font-body)', color: 'var(--color-brand-charcoal)', opacity: 0.7 }}>
-                      <span>Shipping</span>
-                      <span style={{ fontWeight: 500, color: 'var(--color-brand-charcoal)' }}>
-                        {shippingINR === 0 ? (
-                          <span style={{ color: 'var(--color-brand-gold)', fontWeight: 600 }}>Free</span>
-                        ) : (
-                          fmt(shippingINR)
-                        )}
-                      </span>
+                    <div style={{ fontSize: '12.5px', fontFamily: 'var(--font-body)', fontStyle: 'italic', color: 'var(--color-brand-charcoal)', opacity: 0.55, lineHeight: 1.6 }}>
+                      Delivery charges will be shown after entering your location at checkout.
                     </div>
 
                     <AnimatePresence>
