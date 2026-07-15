@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import type { Product } from '@/types/schema';
+import type { Product, Collection } from '@/types/schema';
 import CollectionClient from './CollectionClient';
 
 export const revalidate = 600;
@@ -92,11 +92,68 @@ async function getProducts(): Promise<Product[]> {
   }
 }
 
+async function getCollections(): Promise<Collection[]> {
+  if (
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.UPSTASH_REDIS_REST_URL?.includes('your-upstash-url') ||
+    process.env.DATABASE_URL?.includes('password@localhost')
+  ) {
+    return [];
+  }
+
+  try {
+    const { redis } = await import('@/lib/redis');
+    const { StorefrontKeys } = await import('@/lib/cache');
+    const cached = await redis.get<{ collections: Collection[] }>(StorefrontKeys.allCollections);
+    if (cached?.collections) return cached.collections;
+  } catch {}
+
+  const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('DB Timeout')), ms))]);
+
+  try {
+    const { db } = await import('@/db/index');
+    const { collections } = await import('@/db/schema');
+    const { asc, eq } = await import('drizzle-orm');
+
+    const rows = await withTimeout(
+      db.select({
+        id: collections.id, name: collections.name, slug: collections.slug,
+        description: collections.description, imageUrl: collections.imageUrl,
+        isActive: collections.isActive, sortOrder: collections.sortOrder,
+        createdAt: collections.createdAt, updatedAt: collections.updatedAt,
+      })
+        .from(collections)
+        .where(eq(collections.isActive, true))
+        .orderBy(asc(collections.sortOrder), asc(collections.name))
+    );
+
+    const formatted: Collection[] = rows.map((c) => ({
+      ...c,
+      description: c.description ?? undefined,
+      imageUrl:    c.imageUrl ?? undefined,
+      createdAt:   c.createdAt.toISOString(),
+      updatedAt:   c.updatedAt.toISOString(),
+    }));
+
+    if (formatted.length > 0) {
+      const { redis } = await import('@/lib/redis');
+      const { StorefrontKeys } = await import('@/lib/cache');
+      await redis.set(StorefrontKeys.allCollections, { collections: formatted }, { ex: 600 }).catch(() => {});
+    }
+
+    return formatted;
+  } catch (e) {
+    console.warn('DB error fetching collections (fallback to empty):', (e as Error).message);
+    return [];
+  }
+}
+
 export default async function CollectionPage() {
-  const products = await getProducts();
+  const [products, collections] = await Promise.all([getProducts(), getCollections()]);
   return (
     <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#FAF8F5' }} />}>
-      <CollectionClient initialProducts={products} />
+      <CollectionClient initialProducts={products} collections={collections} />
     </Suspense>
   );
 }

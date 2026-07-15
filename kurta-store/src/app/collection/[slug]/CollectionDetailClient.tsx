@@ -60,7 +60,7 @@ export default function CollectionDetailClient({ collection, products }: { colle
       </section>
 
       {/* Sort + Count Bar */}
-      <section style={{ borderBottom: '1px solid #E6E2D8', backgroundColor: '#FAF8F5', position: 'sticky', top: '64px', zIndex: 10 }}>
+      <section style={{ borderBottom: '1px solid #E6E2D8', backgroundColor: '#FAF8F5' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '14px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.5 }}>
             {sorted.length} piece{sorted.length !== 1 ? 's' : ''}

@@ -8,10 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { trackAddToCart } from '@/lib/analytics';
-import type { Product, SizeLabel } from '@/types/schema';
+import type { Product, Collection, SizeLabel } from '@/types/schema';
 
-const CATEGORIES = ['All', 'Casual', 'Festive', 'Wedding', 'Work'] as const;
-type Category = (typeof CATEGORIES)[number];
+type Category = string;
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
@@ -31,7 +30,7 @@ const FLAG_LABELS: Record<FlagFilter, string> = {
   'featured': 'Featured Pieces',
 };
 
-export default function CollectionClient({ initialProducts }: { initialProducts: Product[] }) {
+export default function CollectionClient({ initialProducts, collections }: { initialProducts: Product[]; collections: Collection[] }) {
   const { addItem } = useCart();
   const { currency, convertPrice } = useCurrency();
   const searchParams = useSearchParams();
@@ -41,6 +40,8 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
   const [activeCategory, setActiveCategory] = useState<Category>('All');
   const [activeFlag, setActiveFlag] = useState<FlagFilter | null>(initialFlag);
   const [sortBy, setSortBy] = useState<string>('newest');
+
+  const categoryOptions = useMemo(() => ['All', ...collections.map((c) => c.name)], [collections]);
 
   const selectCategory = useCallback((cat: Category) => {
     setActiveFlag(null);
@@ -73,30 +74,19 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingBottom: '80px' }}>
 
-      {/* Editorial Collection Hero Banner */}
-      <section style={{ position: 'relative', height: '40vh', display: 'flex', alignItems: 'flex-end', backgroundColor: '#F4ECE1', overflow: 'hidden' }}>
-        <Image
-          src="/lookbook-banner.webp"
-          alt="Minara Collections"
-          fill
-          className="object-cover object-center"
-          priority
-          style={{ opacity: 0.85 }}
-        />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(12,8,6,0.7) 0%, transparent 80%)' }} />
-        <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '0 48px 40px' }}>
-          <p style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(244,236,225,0.7)', marginBottom: '12px' }}>
-            Curated Artisanal Ensembles
-          </p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 300, color: '#ffffff', margin: 0 }}>
-            The Collection
-          </h1>
-        </div>
+      {/* Collection Hero Heading */}
+      <section style={{ padding: '80px 24px 48px', textAlign: 'center', maxWidth: '680px', margin: '0 auto' }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.3em', color: 'var(--color-brand-mauve)', marginBottom: '16px' }}>
+          Curated Artisanal Ensembles
+        </p>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 300, color: 'var(--color-brand-charcoal)', lineHeight: 1.1, margin: 0 }}>
+          The Collection
+        </h1>
       </section>
 
       {/* Filter and Sort Bar */}
-      <section style={{ borderBottom: '1px solid #E6E2D8', backgroundColor: '#FAF8F5', position: 'sticky', top: '64px', zIndex: 10 }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 48px' }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+      <section style={{ borderBottom: '1px solid #E6E2D8', backgroundColor: '#FAF8F5' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', paddingTop: '16px', paddingBottom: '16px' }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 px-4 sm:px-6 md:px-12">
 
           {/* Category Tabs */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -112,7 +102,7 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
                 </button>
               </span>
             )}
-            {CATEGORIES.map((cat) => (
+            {categoryOptions.map((cat) => (
               <button
                 key={cat}
                 onClick={() => selectCategory(cat)}
@@ -169,7 +159,7 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
 
       {/* Product Grid Section */}
       <section style={{ padding: '60px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }} className="px-4 sm:px-6 md:px-12">
 
           <AnimatePresence mode="wait">
             {filteredProducts.length === 0 ? (
@@ -190,12 +180,6 @@ export default function CollectionClient({ initialProducts }: { initialProducts:
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 className="product-grid"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                  columnGap: '24px',
-                  rowGap: '64px'
-                }}
               >
                 {filteredProducts.map((product, i) => (
                   <motion.div

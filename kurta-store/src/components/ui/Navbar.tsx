@@ -102,7 +102,7 @@ export function Navbar({ session }: NavbarProps) {
               </Link>
             </div>
             <div className="hidden md:flex items-center gap-6 md:gap-8">
-              {[{ href: '/', label: 'Home' }, { href: '/collection', label: 'Collection' }, { href: '/cart', label: 'Cart' }].map((l) => {
+              {[{ href: '/', label: 'Home' }, { href: '/collection', label: 'Collection' }].map((l) => {
                 const isActive = l.href === '/' ? pathname === '/' : pathname === l.href;
                 return (
                   <MagneticLink as="div" key={l.href}>
