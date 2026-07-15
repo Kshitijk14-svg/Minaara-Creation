@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -66,13 +66,58 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError]   = useState('');
 
+  const [shippingINR, setShippingINR]     = useState<number | null>(null);
+  const [shippingStatus, setShippingStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
+
   const fmt = useCallback(
     (p: number) => `${CURRENCY_SYMBOLS[currency] ?? ''}${convertPrice(p).toFixed(currency === 'INR' ? 0 : 2)}`,
     [currency, convertPrice],
   );
 
-  const shippingINR = subtotalINR >= 2000 || subtotalINR === 0 ? 0 : 150;
-  const totalINR    = Math.max(0, subtotalINR - discountINR + shippingINR);
+  const fetchShippingRate = useCallback(async (pincode: string): Promise<number> => {
+    if (subtotalINR >= 2000 || subtotalINR === 0) return 0;
+    try {
+      const res = await fetch('/api/shipping/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pincode,
+          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        }),
+      });
+      if (!res.ok) return 150;
+      const data = await res.json();
+      return typeof data.shippingINR === 'number' ? data.shippingINR : 150;
+    } catch {
+      return 150;
+    }
+  }, [items, subtotalINR]);
+
+  // Live delivery-charge quote as the pincode is entered — free at/above ₹2,000
+  // resolves instantly with no request; otherwise debounced against /api/shipping/rate.
+  useEffect(() => {
+    if (subtotalINR >= 2000 || subtotalINR === 0) {
+      setShippingINR(0);
+      setShippingStatus('ready');
+      return;
+    }
+    const pincode = form.pincode.trim();
+    if (pincode.length < 4) {
+      setShippingINR(null);
+      setShippingStatus('idle');
+      return;
+    }
+    setShippingStatus('loading');
+    const timer = setTimeout(() => {
+      fetchShippingRate(pincode).then((rate) => {
+        setShippingINR(rate);
+        setShippingStatus('ready');
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form.pincode, subtotalINR, fetchShippingRate]);
+
+  const totalINR = Math.max(0, subtotalINR - discountINR + (shippingINR ?? 0));
 
   const handleField = (k: keyof ShippingForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -112,6 +157,15 @@ export default function CheckoutPage() {
     setSubmitError('');
 
     try {
+      // The debounced quote may not have resolved yet if the user was quick —
+      // make sure we have a rate before creating a chargeable Razorpay order.
+      let resolvedShippingINR = shippingINR;
+      if (resolvedShippingINR === null) {
+        resolvedShippingINR = await fetchShippingRate(form.pincode.trim());
+        setShippingINR(resolvedShippingINR);
+        setShippingStatus('ready');
+      }
+
       // 1. Create Razorpay order
       const rzpRes = await fetch('/api/payment/create-razorpay-order', {
         method: 'POST',
@@ -122,6 +176,7 @@ export default function CheckoutPage() {
             size: i.size, quantity: i.quantity, priceINR: i.priceINR,
           })),
           couponCode: appliedCode ?? undefined,
+          pincode: form.pincode.trim(),
         }),
       });
 
@@ -362,7 +417,13 @@ export default function CheckoutPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--color-brand-charcoal)', opacity: 0.7 }}>
                     <span>Shipping</span>
                     <span style={{ fontWeight: 500 }}>
-                      {shippingINR === 0 ? <span style={{ color: 'var(--color-brand-gold)', fontWeight: 600 }}>Free</span> : fmt(shippingINR)}
+                      {shippingStatus === 'loading' ? (
+                        <span style={{ opacity: 0.6, fontSize: '12px' }}>Calculating…</span>
+                      ) : shippingINR === null ? (
+                        <span style={{ opacity: 0.6, fontSize: '11px' }}>Enter pincode to calculate</span>
+                      ) : shippingINR === 0 ? (
+                        <span style={{ color: 'var(--color-brand-gold)', fontWeight: 600 }}>Free</span>
+                      ) : fmt(shippingINR)}
                     </span>
                   </div>
                   {discountINR > 0 && (

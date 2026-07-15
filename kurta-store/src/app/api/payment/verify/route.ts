@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment not captured' }, { status: 400 });
     }
     const expectedAmountPaise = Number(rzpOrder.amount);
+    // Read the shipping charge back from Razorpay's own record (set at
+    // create-razorpay-order time) rather than trusting the client or
+    // re-querying Shiprocket, which could return a different rate by now.
+    const shippingINR = Number(rzpOrder.notes?.shippingINR ?? 0);
 
     // 3. Create the order in-process. createOrder recomputes the total from DB
     //    prices and rejects unless it matches expectedAmountPaise; the gateway
@@ -70,6 +74,7 @@ export async function POST(request: NextRequest) {
         paymentGatewayId:    razorpay_payment_id,
         paymentMethod:       'RAZORPAY',
         expectedAmountPaise,
+        shippingINR,
       });
     } catch (err) {
       // Double-submit of the same verified payment: the order already exists —

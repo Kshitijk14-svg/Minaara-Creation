@@ -12,6 +12,7 @@ const ItemSchema = z.object({
 const RequestSchema = z.object({
   items:      z.array(ItemSchema).min(1),
   couponCode: z.string().optional(),
+  pincode:    z.string().min(4).max(10),
 });
 
 export async function POST(request: NextRequest) {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request', issues: parsed.error.issues }, { status: 400 });
     }
 
-    const { items, couponCode } = parsed.data;
+    const { items, couponCode, pincode } = parsed.data;
 
     // Server-side price verification against DB
     const { db } = await import('@/db/index');
@@ -73,7 +74,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const shippingINR = subtotalINR >= 2000 ? 0 : 150;
+    const { getItemsWeightGrams, getShippingRateINR } = await import('@/lib/shiprocket');
+    const weightGrams = await getItemsWeightGrams(items);
+    const { shippingINR } = await getShippingRateINR({ pincode, subtotalINR, weightGrams });
     const totalINR    = Math.max(0, subtotalINR - discountINR + shippingINR);
 
     // Create Razorpay order
@@ -87,6 +90,10 @@ export async function POST(request: NextRequest) {
       amount:   Math.round(totalINR * 100), // paise
       currency: 'INR',
       receipt:  `rcpt_${Date.now()}`,
+      // Locks the shipping charge to this Razorpay order so /api/payment/verify
+      // can read it back from Razorpay's own record instead of trusting the
+      // client or re-querying Shiprocket (which could return a different rate).
+      notes: { shippingINR: String(shippingINR) },
     });
 
     return NextResponse.json({

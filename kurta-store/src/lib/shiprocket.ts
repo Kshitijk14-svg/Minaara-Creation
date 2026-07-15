@@ -114,6 +114,78 @@ export function mapShiprocketStatus(rawStatus: string): OrderStatus | null {
   return table[s] ?? null;
 }
 
+// ── Shipping weight ──────────────────────────────────────────────────────────
+
+/** Total parcel weight for a set of order/cart lines, in grams (falls back to a configured default per item when a product has no recorded weight). */
+export async function getItemsWeightGrams(items: Array<{ productId: string | null | undefined; quantity: number }>): Promise<number> {
+  const productIds = [...new Set(items.map((i) => i.productId).filter((id): id is string => !!id))];
+  const weightMap = new Map<string, number | null>();
+  if (productIds.length > 0) {
+    const rows = await db.select({ id: products.id, weightGrams: products.weightGrams })
+      .from(products).where(inArray(products.id, productIds));
+    for (const r of rows) weightMap.set(r.id, r.weightGrams);
+  }
+
+  const defaultItemWeightGrams = Number(process.env.SHIPROCKET_DEFAULT_ITEM_WEIGHT_GRAMS || 300);
+  return items.reduce((sum, item) => {
+    const grams = (item.productId && weightMap.get(item.productId)) || defaultItemWeightGrams;
+    return sum + grams * item.quantity;
+  }, 0);
+}
+
+// ── Shipping rate lookup ─────────────────────────────────────────────────────
+
+const FLAT_SHIPPING_INR = 150;
+const FREE_SHIPPING_THRESHOLD_INR = 2000;
+
+export interface ShippingRateResult {
+  shippingINR: number;
+  source: 'shiprocket' | 'flat';
+}
+
+/**
+ * Real, location-based delivery charge via Shiprocket's serviceability API.
+ * Falls back to the flat ₹150 rate (free ≥ ₹2,000) whenever Shiprocket isn't
+ * configured, the pickup pincode is missing, or the API call fails for any
+ * reason — a shipping quote must never block checkout.
+ */
+export async function getShippingRateINR(params: { pincode: string; subtotalINR: number; weightGrams: number }): Promise<ShippingRateResult> {
+  const { pincode, subtotalINR, weightGrams } = params;
+  if (subtotalINR >= FREE_SHIPPING_THRESHOLD_INR || subtotalINR === 0) {
+    return { shippingINR: 0, source: 'flat' };
+  }
+
+  const flatFallback: ShippingRateResult = { shippingINR: FLAT_SHIPPING_INR, source: 'flat' };
+  const pickupPincode = process.env.SHIPROCKET_PICKUP_PINCODE;
+  if (!isShiprocketConfigured() || !pickupPincode) return flatFallback;
+
+  try {
+    const qs = new URLSearchParams({
+      pickup_postcode: pickupPincode,
+      delivery_postcode: pincode,
+      weight: (Math.max(weightGrams, 1) / 1000).toFixed(2),
+      cod: '0',
+    });
+    const res = await authedFetch(`/courier/serviceability/?${qs.toString()}`);
+    if (!res.ok) return flatFallback;
+
+    const data = await res.json();
+    const companies = data?.data?.available_courier_companies;
+    if (!Array.isArray(companies) || companies.length === 0) return flatFallback;
+
+    const cheapest = companies.reduce((min: number, c: any) => {
+      const rate = Number(c.rate ?? c.freight_charge);
+      return Number.isFinite(rate) && rate < min ? rate : min;
+    }, Infinity);
+    if (!Number.isFinite(cheapest)) return flatFallback;
+
+    return { shippingINR: Math.ceil(cheapest), source: 'shiprocket' };
+  } catch (err) {
+    console.error('[shiprocket] rate lookup failed:', err);
+    return flatFallback;
+  }
+}
+
 // ── Push order to Shiprocket ─────────────────────────────────────────────────
 
 export async function pushOrderToShiprocket(orderId: string): Promise<void> {
@@ -135,19 +207,7 @@ export async function pushOrderToShiprocket(orderId: string): Promise<void> {
     ]);
     if (!address) throw new Error('Order has no shipping address');
 
-    const productIds = [...new Set(items.map((i) => i.productId).filter((id): id is string => !!id))];
-    const weightMap = new Map<string, number | null>();
-    if (productIds.length > 0) {
-      const rows = await db.select({ id: products.id, weightGrams: products.weightGrams })
-        .from(products).where(inArray(products.id, productIds));
-      for (const r of rows) weightMap.set(r.id, r.weightGrams);
-    }
-
-    const defaultItemWeightGrams = Number(process.env.SHIPROCKET_DEFAULT_ITEM_WEIGHT_GRAMS || 300);
-    const totalWeightGrams = items.reduce((sum, item) => {
-      const grams = (item.productId && weightMap.get(item.productId)) || defaultItemWeightGrams;
-      return sum + grams * item.quantity;
-    }, 0);
+    const totalWeightGrams = await getItemsWeightGrams(items);
 
     const [firstName, ...rest] = address.fullName.trim().split(' ');
     const payload = {

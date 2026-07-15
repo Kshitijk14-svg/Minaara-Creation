@@ -139,6 +139,7 @@ export const orders = mysqlTable('orders', {
   paymentMethod:    varchar('paymentMethod', { length: 100 }),
   subtotalINR:      double('subtotalINR').notNull(),
   discountAmountINR: double('discountAmountINR').default(0).notNull(),
+  shippingINR:      double('shippingINR').default(0).notNull(),
   totalAmountINR:   double('totalAmountINR').notNull(),
   currency:         varchar('currency', { length: 10 }).default('INR').notNull(),
   notes:            text('notes'),

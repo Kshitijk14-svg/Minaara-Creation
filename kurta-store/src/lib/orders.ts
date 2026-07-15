@@ -59,6 +59,12 @@ export interface CreateOrderOptions {
    * Used to bind a recorded order to the amount actually paid at the gateway.
    */
   expectedAmountPaise?: number;
+  /**
+   * Shipping charge actually locked in for this order (e.g. read back from the
+   * gateway's own record — see /api/payment/verify). Falls back to the flat
+   * computeShippingINR rule when omitted, e.g. for internal/admin order creation.
+   */
+  shippingINR?: number;
 }
 
 /** Business/validation errors carry a machine-readable `code`. */
@@ -92,6 +98,7 @@ export interface CreatedOrder {
   notes: string | null;
   subtotalINR: number;
   discountAmountINR: number;
+  shippingINR: number;
   totalAmountINR: number;
   paymentStatus: string;
   paymentGatewayId: string | null;
@@ -236,12 +243,12 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
       }
     }
 
-    const totalAmountINR = subtotalINR - discountAmountINR;
+    const shippingINR     = opts.shippingINR ?? computeShippingINR(subtotalINR);
+    const totalAmountINR  = subtotalINR - discountAmountINR + shippingINR;
 
     // 5b. Bind to the amount actually paid at the gateway (tamper/replay protection).
     if (opts.expectedAmountPaise !== undefined) {
-      const shippingINR    = computeShippingINR(subtotalINR);
-      const chargeablePaise = Math.round((subtotalINR - discountAmountINR + shippingINR) * 100);
+      const chargeablePaise = Math.round(totalAmountINR * 100);
       if (chargeablePaise !== opts.expectedAmountPaise) {
         throw new OrderError(
           'AMOUNT_MISMATCH',
@@ -266,6 +273,7 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
       paymentMethod:    opts.paymentMethod ?? null,
       discountAmountINR,
       subtotalINR,
+      shippingINR,
       totalAmountINR,
     });
 
@@ -333,6 +341,7 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
       notes:            orderData.notes ?? null,
       subtotalINR,
       discountAmountINR,
+      shippingINR,
       totalAmountINR,
       paymentStatus:    opts.paymentStatus ?? 'PENDING',
       paymentGatewayId: opts.paymentGatewayId ?? null,
