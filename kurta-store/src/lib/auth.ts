@@ -83,10 +83,12 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
   providers: [
-    // Signup + forgot-password: verifies an emailed 6-digit code. With no
-    // `newPassword`, it's a signup (creates the account if missing). With
-    // `newPassword`, it's a password reset/first-time-set for an existing
-    // account (send-otp's RESET type already guarantees the account exists).
+    // Signup + forgot-password: verifies an emailed 6-digit code, then either
+    // creates a new account (SIGNUP) or updates an existing one's password
+    // (FORGOT). `mode` is always sent explicitly by the frontend — branching
+    // on it instead of on `newPassword` presence is what keeps the two flows
+    // from being confused with each other (see 0a45ed2's undefined-stringifies-
+    // to-"undefined" bug, which came from inferring flow off implicit fields).
     CredentialsProvider({
       id: "otp",
       name: "OTP",
@@ -95,20 +97,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         otp:         { label: "OTP", type: "text" },
         name:        { label: "Name", type: "text" },
         newPassword: { label: "New Password", type: "password" },
+        mode:        { label: "Mode", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.otp) return null;
 
         const email       = (credentials.email as string).trim().toLowerCase();
         const otp         = (credentials.otp as string).trim();
+        const mode        = credentials.mode as string | undefined; // 'SIGNUP' | 'FORGOT'
         const name        = credentials.name as string | undefined;
         const newPassword = credentials.newPassword as string | undefined;
+
+        if (!newPassword || newPassword.length < 8) return null;
 
         const valid = await verifyOtpCode(email, otp);
         if (!valid) return null;
 
-        if (newPassword) {
-          const passwordHash = await hashPassword(newPassword);
+        const passwordHash = await hashPassword(newPassword);
+
+        if (mode === 'FORGOT') {
           await db.update(users).set({ passwordHash }).where(eq(users.email, email));
         } else {
           // Upsert user: insert if not exists, no-op on duplicate
@@ -119,6 +126,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               email,
               name:  name?.trim() || null,
               role:  'CUSTOMER',
+              passwordHash,
             })
             .onDuplicateKeyUpdate({ set: { email } }); // no-op update — keeps existing data
         }

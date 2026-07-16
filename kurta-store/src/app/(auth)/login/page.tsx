@@ -188,7 +188,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    if (mode === 'FORGOT') {
+    if (mode === 'FORGOT' || mode === 'SIGNUP') {
       if (newPassword.length < 8) {
         setError('Password must be at least 8 characters.');
         setLoading(false);
@@ -213,8 +213,9 @@ export default function LoginPage() {
       const res = await signIn('otp', {
         email: email.trim().toLowerCase(),
         otp: otp.trim(),
+        mode,
         ...(mode === 'SIGNUP' ? { name: name.trim() } : {}),
-        ...(mode === 'FORGOT' ? { newPassword } : {}),
+        newPassword,
         redirect: false,
       });
 
@@ -253,7 +254,9 @@ export default function LoginPage() {
     ? (step === 'EMAIL' ? "Enter your account email and we'll send you a code." : `Enter the code sent to ${email} and choose a new password.`)
     : step === 'EMAIL'
       ? (mode === 'SIGNIN' ? 'Enter your credentials to access your account.' : 'Join the collective for curated artisan collections.')
-      : `We've sent a 6-digit code to ${email}`;
+      : mode === 'SIGNUP'
+        ? `Enter the code sent to ${email} and create a password.`
+        : `We've sent a 6-digit code to ${email}`;
 
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingTop: '60px', paddingBottom: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -508,10 +511,10 @@ export default function LoginPage() {
                 />
               </div>
 
-              {mode === 'FORGOT' && (
+              {(mode === 'FORGOT' || mode === 'SIGNUP') && (
                 <>
                   <div>
-                    <label htmlFor="newPassword" style={labelStyle}>New Password</label>
+                    <label htmlFor="newPassword" style={labelStyle}>{mode === 'SIGNUP' ? 'Password' : 'New Password'}</label>
                     <input
                       id="newPassword"
                       name="newPassword"
@@ -544,9 +547,9 @@ export default function LoginPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
                 <button
                   type="submit"
-                  disabled={loading || otp.length < 6 || (mode === 'FORGOT' && (!newPassword || !confirmPassword))}
+                  disabled={loading || otp.length < 6 || ((mode === 'FORGOT' || mode === 'SIGNUP') && (!newPassword || !confirmPassword))}
                   className="btn-liquid"
-                  style={primaryButtonStyle(loading || otp.length < 6 || (mode === 'FORGOT' && (!newPassword || !confirmPassword)))}
+                  style={primaryButtonStyle(loading || otp.length < 6 || ((mode === 'FORGOT' || mode === 'SIGNUP') && (!newPassword || !confirmPassword)))}
                 >
                   {loading
                     ? (mode === 'FORGOT' ? 'Updating...' : 'Verifying...')
