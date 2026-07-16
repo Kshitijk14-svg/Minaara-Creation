@@ -23,8 +23,15 @@ const nextConfig: NextConfig = {
   // __dirname, which webpack rewrites when bundled — external for the same
   // reason.
   serverExternalPackages: ['sharp', 'fluent-ffmpeg', 'ffmpeg-static', '@ffprobe-installer/ffprobe'],
+
+  // Next.js enforces a 10MB cap on incoming request bodies before they reach
+  // any API route handler. Without this, video files > 10MB are silently
+  // truncated, causing ffprobe to see a broken MP4 container and report the
+  // file as corrupt. Raise to 160MB here (matching the Nginx client_max_body_size
+  // set for /api/upload/video); the route itself enforces the real 150MB limit.
   experimental: {
     optimizePackageImports: ['framer-motion', 'gsap'],
+    middlewareClientMaxBodySize: 160 * 1024 * 1024, // 160 MB in bytes
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
