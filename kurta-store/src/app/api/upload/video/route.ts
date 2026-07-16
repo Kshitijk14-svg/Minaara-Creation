@@ -5,12 +5,17 @@ import os from 'os';
 import path from 'path';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
-import ffprobeStatic from 'ffprobe-static';
+import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 import { isAuthorized } from '@/lib/api-auth';
 import { MEDIA_ROOT } from '@/lib/media';
 
+// ffprobe-static (previously used here) is stale — last published years ago,
+// bundling an old ffmpeg/ffprobe build that fails to parse modern
+// iPhone-recorded videos (HEVC/newer container metadata). @ffprobe-installer
+// is actively maintained and stays much closer to the ffmpeg-static version
+// already used below for the actual transcode step.
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobeStatic.path);
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 // Raw upload ceiling — generous because the server transcodes down to a
 // bounded output size below; this just guards against absurd/abusive
@@ -113,7 +118,8 @@ export async function POST(request: NextRequest) {
     let duration: number | null;
     try {
       duration = await probeDuration(tempInputPath);
-    } catch {
+    } catch (err) {
+      console.error(`[POST /api/upload/video] probe failed for ${filename}`, err);
       return NextResponse.json({ error: `${filename} could not be read as a video (corrupt file?)` }, { status: 400 });
     }
     if (duration !== null && duration > MAX_DURATION_SECONDS) {

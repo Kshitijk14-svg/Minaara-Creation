@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   // ffmpeg-static/ffprobe-static resolve their bundled binary paths via
   // __dirname, which webpack rewrites when bundled — external for the same
   // reason.
-  serverExternalPackages: ['sharp', 'fluent-ffmpeg', 'ffmpeg-static', 'ffprobe-static'],
+  serverExternalPackages: ['sharp', 'fluent-ffmpeg', 'ffmpeg-static', '@ffprobe-installer/ffprobe'],
   experimental: {
     optimizePackageImports: ['framer-motion', 'gsap'],
   },
