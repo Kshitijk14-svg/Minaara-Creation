@@ -73,11 +73,16 @@ export async function POST(req: NextRequest) {
     // out verification of this brand-new, correct code.
     try { await redis.del(`otp_fail:${email}`); } catch { /* non-fatal */ }
 
+    // Neutral "verification code" wording on purpose — a subject/heading
+    // like "Reset your password" paired with a 6-digit code matches the
+    // exact template Gmail's anti-phishing filters scrutinize hardest,
+    // and has been observed silently suppressing delivery (not even
+    // landing in spam) on a freshly-configured sending account.
     const subject = type === 'SIGNUP' ? 'Verify your Minara account'
-      : type === 'RESET' ? 'Reset your Minara password'
+      : type === 'RESET' ? 'Your Minara verification code'
       : 'Your Minara sign-in code';
     const heading  = type === 'SIGNUP' ? 'Create Your Account'
-      : type === 'RESET' ? 'Reset Your Password'
+      : type === 'RESET' ? 'Verify Your Identity'
       : 'Welcome Back';
     const html    = `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:32px;border:1px solid #ede9df;border-radius:12px;background:#faf8f5;">
       <div style="text-align:center;margin-bottom:24px;">
@@ -97,10 +102,12 @@ export async function POST(req: NextRequest) {
       </p>
     </div>`;
 
+    const mailStart = Date.now();
     try {
       await sendEmail({ to: email, subject, html });
+      console.log(`[otp-mail] sent type=${type} email=${email} ms=${Date.now() - mailStart}`);
     } catch (mailErr) {
-      console.error('Mail send error:', mailErr);
+      console.error(`[otp-mail] FAILED type=${type} email=${email} ms=${Date.now() - mailStart}`, mailErr);
       return NextResponse.json(
         { error: 'Could not send the verification email. Please try again shortly.' },
         { status: 502 }
