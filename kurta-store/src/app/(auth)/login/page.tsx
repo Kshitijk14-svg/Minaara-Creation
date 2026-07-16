@@ -204,11 +204,17 @@ export default function LoginPage() {
     }
 
     try {
+      // NextAuth's signIn() serializes these via `new URLSearchParams(...)`,
+      // which stringifies `undefined` to the literal text "undefined" rather
+      // than omitting the field — so `name`/`newPassword` must be left out
+      // of the object entirely when not applicable, not set to `undefined`,
+      // or authorize() would see a truthy "undefined" string and branch on
+      // it as if a real password/name were provided.
       const res = await signIn('otp', {
         email: email.trim().toLowerCase(),
         otp: otp.trim(),
-        name: mode === 'SIGNUP' ? name.trim() : undefined,
-        newPassword: mode === 'FORGOT' ? newPassword : undefined,
+        ...(mode === 'SIGNUP' ? { name: name.trim() } : {}),
+        ...(mode === 'FORGOT' ? { newPassword } : {}),
         redirect: false,
       });
 
