@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -74,6 +74,15 @@ export default function LoginPage() {
   const [step, setStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+  const verifyInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   const resetExtraFields = () => {
     setOtp('');
@@ -114,6 +123,20 @@ export default function LoginPage() {
     }
   };
 
+  // Shared by the initial send and the OTP-step resend button — throws on failure.
+  const requestOtp = async () => {
+    const res = await fetch('/api/auth/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        type: mode === 'SIGNUP' ? 'SIGNUP' : 'RESET',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send OTP');
+  };
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -126,18 +149,7 @@ export default function LoginPage() {
     }
 
     try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          type: mode === 'SIGNUP' ? 'SIGNUP' : 'RESET',
-        }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || 'Failed to send OTP');
-
+      await requestOtp();
       setStep('OTP');
     } catch (err: any) {
       setError(err.message);
@@ -146,8 +158,33 @@ export default function LoginPage() {
     }
   };
 
+  // Lets a user get a fresh code without discarding the email/name step —
+  // "Back to email" alone made it too easy to keep verifying a stale/already
+  // -consumed code instead of just asking for a new one.
+  const handleResendOtp = async () => {
+    if (resending || resendCooldown > 0) return;
+    setResending(true);
+    setError('');
+    try {
+      await requestOtp();
+      setOtp('');
+      setResendCooldown(20);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Guards against a fast double-click/double-tap firing two verify
+    // requests for the same one-time code — the second would always find
+    // the code already consumed and report it as "incorrect or expired"
+    // even though it was correct. Checked synchronously (unlike the
+    // `loading` state, which only disables the button after a render).
+    if (verifyInFlightRef.current) return;
+    verifyInFlightRef.current = true;
     setLoading(true);
     setError('');
 
@@ -155,11 +192,13 @@ export default function LoginPage() {
       if (newPassword.length < 8) {
         setError('Password must be at least 8 characters.');
         setLoading(false);
+        verifyInFlightRef.current = false;
         return;
       }
       if (newPassword !== confirmPassword) {
         setError('Passwords do not match.');
         setLoading(false);
+        verifyInFlightRef.current = false;
         return;
       }
     }
@@ -194,6 +233,7 @@ export default function LoginPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+      verifyInFlightRef.current = false;
     }
   };
 
@@ -505,6 +545,19 @@ export default function LoginPage() {
                   {loading
                     ? (mode === 'FORGOT' ? 'Updating...' : 'Verifying...')
                     : (mode === 'SIGNUP' ? 'Confirm Registration' : 'Set New Password')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resending || resendCooldown > 0}
+                  style={{ ...linkButtonStyle, opacity: (resending || resendCooldown > 0) ? 0.4 : 0.5 }}
+                >
+                  {resending
+                    ? 'Sending...'
+                    : resendCooldown > 0
+                      ? `Resend code (${resendCooldown}s)`
+                      : 'Resend code'}
                 </button>
 
                 <button

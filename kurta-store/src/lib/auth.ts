@@ -27,7 +27,10 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
 
   try {
     const fails = await redis.get<number>(failKey);
-    if (typeof fails === 'number' && fails >= MAX_OTP_ATTEMPTS) throw new OtpLocked();
+    if (typeof fails === 'number' && fails >= MAX_OTP_ATTEMPTS) {
+      console.log(`[otp] locked email=${email} fails=${fails}`);
+      throw new OtpLocked();
+    }
   } catch (e) {
     if (e instanceof OtpLocked) throw e;
     // Redis unavailable — the DB checks below still apply.
@@ -49,6 +52,13 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
     .limit(1);
 
   if (!otpRecord || otpRecord.expiresAt < new Date()) {
+    // Diagnostic only — never logs the code itself. Distinguishes "no row
+    // at all" (e.g. already consumed by an earlier successful verify) from
+    // a genuine expiry, since both currently surface the same generic
+    // "incorrect or expired" message to the user.
+    console.log(otpRecord
+      ? `[otp] expired email=${email} expiresAt=${otpRecord.expiresAt.toISOString()} now=${new Date().toISOString()}`
+      : `[otp] no-row email=${email}`);
     if (otpRecord) await db.delete(otps).where(eq(otps.id, otpRecord.id));
     await registerFailure();
     return false;
@@ -59,6 +69,7 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
   const codeMatches = stored.length === given.length && timingSafeEqual(stored, given);
 
   if (!codeMatches) {
+    console.log(`[otp] mismatch email=${email} storedLen=${stored.length} givenLen=${given.length}`);
     await registerFailure();
     return false;
   }
