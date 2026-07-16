@@ -86,7 +86,7 @@ export function Navbar({ session }: NavbarProps) {
       <nav
         style={{
           position: 'sticky', top: 0, zIndex: 60,
-          background: transparentNav ? 'linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%)' : 'rgba(244, 236, 225, 0.98)',
+          background: transparentNav ? 'transparent' : 'rgba(237, 230, 222, 0.98)',
           borderBottom: transparentNav ? '1px solid transparent' : '1px solid var(--glass-border)',
           transform: scrollDir === 'down' && !isSearchOpen ? 'translateY(-100%)' : 'translateY(0)',
           transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)'
@@ -95,13 +95,13 @@ export function Navbar({ session }: NavbarProps) {
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }} className="flex items-center justify-between h-16 w-full">
 
           {/* Left Navigation Items */}
-          <div className="flex items-center gap-4 md:flex-1 md:gap-8">
+          <div className="flex items-center gap-4 lg:flex-1 lg:gap-8">
             <div className="navbar-logo-mobile">
               <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
                 <Image src="/minaara-logo.jpeg" alt="Minara" width={40} height={40} style={{ objectFit: 'contain', borderRadius: '4px' }} />
               </Link>
             </div>
-            <div className="hidden md:flex items-center gap-6 md:gap-8">
+            <div className="navbar-desktop-only items-center gap-6 lg:gap-8">
               {[{ href: '/', label: 'Home' }, { href: '/collection', label: 'Collection' }].map((l) => {
                 const isActive = l.href === '/' ? pathname === '/' : pathname === l.href;
                 return (
@@ -137,7 +137,7 @@ export function Navbar({ session }: NavbarProps) {
           </div>
 
           {/* Logo Center (desktop only) */}
-          <div className="hidden md:flex md:flex-1 justify-center">
+          <div className="navbar-desktop-only lg:flex-1 justify-center">
             <div className="navbar-logo-desktop">
               <Link href="/" style={{ textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: '1.875rem', color: '#1A1A1A', letterSpacing: '0.05em', fontWeight: 300 }}>
                 Label Minara
@@ -146,8 +146,8 @@ export function Navbar({ session }: NavbarProps) {
           </div>
 
           {/* Right Navigation Items */}
-          <div className="flex items-center justify-end md:flex-1">
-          <div className="flex items-center gap-1 md:hidden">
+          <div className="flex items-center justify-end lg:flex-1">
+          <div className="navbar-mobile-only items-center gap-1">
             <button
               onClick={() => setIsSearchOpen(true)}
               aria-label="Open search"
@@ -166,10 +166,10 @@ export function Navbar({ session }: NavbarProps) {
               <HamburgerIcon />
             </button>
           </div>
-          <div className="hidden md:flex items-center gap-4 md:gap-6">
+          <div className="navbar-desktop-only items-center gap-4 lg:gap-6">
 
             {/* Custom Currency Dropdown */}
-            <div style={{ position: 'relative' }} className="hidden md:block">
+            <div style={{ position: 'relative' }} className="navbar-desktop-only">
               <button
                 onClick={(e) => {
                   e.stopPropagation();

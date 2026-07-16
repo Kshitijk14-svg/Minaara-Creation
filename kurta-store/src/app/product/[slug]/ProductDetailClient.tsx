@@ -63,7 +63,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingTop: '40px', paddingBottom: '80px' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+      <div className="pdp-container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
         {/* Breadcrumb */}
         <nav style={{ marginBottom: '32px', display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -80,7 +80,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
           </span>
         </nav>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', alignItems: 'start' }}>
+        <div className="pdp-grid" style={{ display: 'grid', alignItems: 'start' }}>
 
           {/* ── LEFT: Image Gallery ─────────────────────────────────────────── */}
           <div>
@@ -163,7 +163,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
           </div>
 
           {/* ── RIGHT: Product Details ──────────────────────────────────────── */}
-          <div style={{ position: 'sticky', top: '100px' }}>
+          <div className="pdp-info-panel">
 
             {/* Category tag */}
             {product.category && (
@@ -281,7 +281,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             </div>
 
             {/* Add to Cart */}
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '28px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '28px' }}>
               <motion.button
                 onClick={handleAddToCart}
                 whileTap={{ scale: 0.97 }}

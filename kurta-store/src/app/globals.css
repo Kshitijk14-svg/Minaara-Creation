@@ -433,6 +433,43 @@ h6 {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   Product Detail Page — stacked on mobile/tablet, side-by-side
+   from 1024px up (matches navbar's mobile/desktop cutoff).
+   ───────────────────────────────────────────────────────────── */
+.pdp-container {
+  padding: 0 16px;
+}
+
+@media (min-width: 1024px) {
+  .pdp-container {
+    padding: 0 24px;
+  }
+}
+
+.pdp-grid {
+  grid-template-columns: 1fr;
+  gap: 32px;
+}
+
+@media (min-width: 1024px) {
+  .pdp-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+  }
+}
+
+.pdp-info-panel {
+  position: static;
+}
+
+@media (min-width: 1024px) {
+  .pdp-info-panel {
+    position: sticky;
+    top: 100px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
    Product Card — Enhanced hover effects
    ───────────────────────────────────────────────────────────── */
 .product-card {
@@ -1121,10 +1158,11 @@ input:checked+.toggle-slider::before {
   transform: translateY(-4px);
 }
 
-/* ── Navbar Logo Visibility ─────────────────────────────────────
+/* ── Navbar Responsive Visibility ───────────────────────────────
    Use real media queries (not Tailwind utilities) so they are
    never dropped during production CSS purging.
-   md breakpoint = 768px (matches Tailwind's default).
+   Cutoff = 1024px so tablets get the mobile nav (hamburger, single
+   logo) instead of the squeezed desktop layout.
 ────────────────────────────────────────────────────────────── */
 .navbar-logo-mobile {
   display: flex;
@@ -1135,12 +1173,28 @@ input:checked+.toggle-slider::before {
   display: none;
 }
 
-@media (min-width: 768px) {
+.navbar-mobile-only {
+  display: flex;
+}
+
+.navbar-desktop-only {
+  display: none;
+}
+
+@media (min-width: 1024px) {
   .navbar-logo-mobile {
     display: none;
   }
 
   .navbar-logo-desktop {
     display: block;
+  }
+
+  .navbar-mobile-only {
+    display: none;
+  }
+
+  .navbar-desktop-only {
+    display: flex;
   }
 }
