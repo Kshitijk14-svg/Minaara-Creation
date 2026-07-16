@@ -39,14 +39,12 @@ interface NavbarProps {
 }
 
 export function Navbar({ session }: NavbarProps) {
-  const [isScrolled, setIsScrolled] = useState(false);
   const [scrollDir, setScrollDir] = useState<'up' | 'down'>('up');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const pathname = usePathname();
-  const isHome = pathname === '/';
 
   const { items } = useCart();
   const { count: wishlistCount } = useWishlist();
@@ -57,7 +55,6 @@ export function Navbar({ session }: NavbarProps) {
     let lastScroll = window.scrollY;
     const handleScroll = () => {
       const currentScroll = window.scrollY;
-      setIsScrolled(currentScroll > 40);
 
       if (currentScroll > lastScroll && currentScroll > 80) {
         setScrollDir('down');
@@ -79,15 +76,13 @@ export function Navbar({ session }: NavbarProps) {
     return () => window.removeEventListener('click', handleClose);
   }, [isCurrencyOpen]);
 
-  const transparentNav = isHome && !isScrolled && !isSearchOpen;
-
   return (
     <>
       <nav
         style={{
           position: 'sticky', top: 0, zIndex: 60,
-          background: transparentNav ? 'transparent' : 'rgba(237, 230, 222, 0.98)',
-          borderBottom: transparentNav ? '1px solid transparent' : '1px solid var(--glass-border)',
+          background: '#EDE6DE',
+          borderBottom: '1px solid var(--glass-border)',
           transform: scrollDir === 'down' && !isSearchOpen ? 'translateY(-100%)' : 'translateY(0)',
           transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)'
         }}

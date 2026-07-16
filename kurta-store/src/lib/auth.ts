@@ -1,8 +1,8 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/db/index";
 import { users, otps } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { randomUUID, timingSafeEqual } from "crypto";
 import { redis } from "@/lib/redis";
 import { hashPassword, verifyPassword } from "@/lib/password";
@@ -11,17 +11,25 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_FAIL_WINDOW_SECS = 15 * 60;
 
+// Thrown instead of returning false so the frontend can tell "locked out"
+// apart from "wrong/expired code" (both would otherwise show the same
+// generic CredentialsSignin error). `code` surfaces via signIn()'s result.
+class OtpLocked extends CredentialsSignin {
+  code = "otp_locked";
+}
+
 // Shared by the OTP provider for both signup and password-reset verification.
-// Checks the lockout counter, loads the single most-recent code for the
-// email, and does a constant-time compare. Always consumes (deletes) a
-// matched or expired code. Returns whether the code was valid.
+// Checks the lockout counter, loads the (unique) code row for the email, and
+// does a constant-time compare. Always consumes (deletes) a matched or
+// expired code. Returns whether the code was valid.
 async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
   const failKey = `otp_fail:${email}`;
 
   try {
     const fails = await redis.get<number>(failKey);
-    if (typeof fails === 'number' && fails >= MAX_OTP_ATTEMPTS) return false;
-  } catch {
+    if (typeof fails === 'number' && fails >= MAX_OTP_ATTEMPTS) throw new OtpLocked();
+  } catch (e) {
+    if (e instanceof OtpLocked) throw e;
     // Redis unavailable — the DB checks below still apply.
   }
 
@@ -38,7 +46,6 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
     .select()
     .from(otps)
     .where(eq(otps.email, email))
-    .orderBy(desc(otps.createdAt))
     .limit(1);
 
   if (!otpRecord || otpRecord.expiresAt < new Date()) {

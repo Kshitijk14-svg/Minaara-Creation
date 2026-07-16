@@ -59,12 +59,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // CSPRNG 6-digit code; enforce a single active code per email.
+    // CSPRNG 6-digit code; email is unique so this upsert enforces a single
+    // active code per email atomically (no delete+insert race window).
     const code      = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const createdAt = new Date();
 
-    await db.delete(otps).where(eq(otps.email, email));
-    await db.insert(otps).values({ email, code, expiresAt });
+    await db.insert(otps).values({ email, code, expiresAt, createdAt })
+      .onDuplicateKeyUpdate({ set: { code, expiresAt, createdAt } });
+
+    // A fresh code should get a fresh attempt budget — otherwise fails
+    // accumulated against a stale/old code (or a previous resend) can lock
+    // out verification of this brand-new, correct code.
+    try { await redis.del(`otp_fail:${email}`); } catch { /* non-fatal */ }
 
     const subject = type === 'SIGNUP' ? 'Verify your Minara account'
       : type === 'RESET' ? 'Reset your Minara password'

@@ -174,6 +174,9 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
+        if ((res as any)?.code === 'otp_locked') {
+          throw new Error('Too many incorrect attempts. Please wait 15 minutes or request a new code.');
+        }
         // NextAuth wraps authorize() errors as generic "CredentialsSignin"
         // Map to user-friendly messages based on context
         const errorMap: Record<string, string> = {

@@ -48,12 +48,11 @@ export const users = mysqlTable('users', {
 
 export const otps = mysqlTable('otps', {
   id:        varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
-  email:     varchar('email', { length: 255 }).notNull(),
+  email:     varchar('email', { length: 255 }).notNull().unique(),
   code:      varchar('code', { length: 10 }).notNull(),
   expiresAt: datetime('expiresAt').notNull(),
   createdAt: datetime('createdAt').notNull().$defaultFn(() => new Date()),
 }, (t) => [
-  index('otp_email_idx').on(t.email),
   index('otp_email_expires_idx').on(t.email, t.expiresAt),
 ]);
 
