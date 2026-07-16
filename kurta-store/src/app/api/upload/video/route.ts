@@ -76,34 +76,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return NextResponse.json({ error: 'Invalid form data' }, { status: 400 });
-  }
+  // Read as a raw body, not multipart/form-data — Next.js App Router route
+  // handlers parse multipart via undici's request.formData(), which has a
+  // confirmed upstream bug throwing on large single parts (vercel/next.js
+  // #46891, #73220). This route only ever takes one file with no other
+  // fields, so a raw binary body avoids that parser entirely. filename
+  // arrives via a query param since there's no more form field to read it
+  // from.
+  const filename = request.nextUrl.searchParams.get('filename') || 'upload.mp4';
+  const contentType = request.headers.get('content-type')?.split(';')[0].trim() ?? '';
 
-  const file = formData.get('file') as File | null;
-  if (!file) {
+  if (!request.body) {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 });
   }
-  if (!['video/mp4', 'video/quicktime'].includes(file.type)) {
-    return NextResponse.json({ error: `${file.name} is not a supported video type (MP4/MOV only)` }, { status: 400 });
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: `${file.name} exceeds ${MAX_BYTES / (1024 * 1024)} MB limit` }, { status: 400 });
+  if (!['video/mp4', 'video/quicktime'].includes(contentType)) {
+    return NextResponse.json({ error: `${filename} is not a supported video type (MP4/MOV only)` }, { status: 400 });
   }
 
-  const ext = file.type === 'video/quicktime' ? 'mov' : 'mp4';
+  const ext = contentType === 'video/quicktime' ? 'mov' : 'mp4';
   const tempInputPath = path.join(os.tmpdir(), `reel-in-${randomUUID()}.${ext}`);
   const tempOutputPath = path.join(os.tmpdir(), `reel-out-${randomUUID()}.mp4`);
 
   try {
-    const arrayBuffer = await file.arrayBuffer();
+    const arrayBuffer = await request.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    if (buffer.length > MAX_BYTES) {
+      return NextResponse.json({ error: `${filename} exceeds ${MAX_BYTES / (1024 * 1024)} MB limit` }, { status: 400 });
+    }
     if (!sniffVideo(buffer.subarray(0, 12))) {
-      return NextResponse.json({ error: `${file.name} is not a valid MP4/MOV file` }, { status: 400 });
+      return NextResponse.json({ error: `${filename} is not a valid MP4/MOV file` }, { status: 400 });
     }
 
     await writeFile(tempInputPath, buffer);
@@ -112,7 +114,7 @@ export async function POST(request: NextRequest) {
     try {
       duration = await probeDuration(tempInputPath);
     } catch {
-      return NextResponse.json({ error: `${file.name} could not be read as a video (corrupt file?)` }, { status: 400 });
+      return NextResponse.json({ error: `${filename} could not be read as a video (corrupt file?)` }, { status: 400 });
     }
     if (duration !== null && duration > MAX_DURATION_SECONDS) {
       return NextResponse.json({ error: `Video is ${Math.round(duration)}s — keep it under ${MAX_DURATION_SECONDS}s` }, { status: 400 });
@@ -126,13 +128,13 @@ export async function POST(request: NextRequest) {
     }
 
     await mkdir(videosDir, { recursive: true });
-    const filename = `${randomUUID()}.mp4`;
+    const outputFilename = `${randomUUID()}.mp4`;
     // copy (not rename) — tempOutputPath is on the OS tmp filesystem, which
     // may be a different device/mount than MEDIA_ROOT, and rename() across
     // devices fails with EXDEV.
-    await copyFile(tempOutputPath, path.join(videosDir, filename));
+    await copyFile(tempOutputPath, path.join(videosDir, outputFilename));
 
-    return NextResponse.json({ url: `/media/videos/${filename}` });
+    return NextResponse.json({ url: `/media/videos/${outputFilename}` });
   } catch (err) {
     console.error('[POST /api/upload/video]', err);
     const detail =

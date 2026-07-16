@@ -101,9 +101,17 @@ export default function VideoUploader({ videoUrl, posterUrl, onChange }: VideoUp
         // Poster capture/upload failing is non-fatal — the video itself is what matters.
       }
 
-      const videoFd = new FormData();
-      videoFd.append('file', file);
-      const videoRes = await fetch('/api/upload/video', { method: 'POST', body: videoFd });
+      // Sent as a raw body (not multipart/form-data) — Next.js's App Router
+      // route handlers parse multipart bodies via undici's request.formData(),
+      // which has a confirmed upstream bug that throws on large single parts
+      // (see vercel/next.js #46891, #73220). A raw binary POST sidesteps it
+      // entirely since there's only ever one file and no other form fields.
+      const params = new URLSearchParams({ filename: file.name });
+      const videoRes = await fetch(`/api/upload/video?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
       if (!videoRes.ok) {
         try {
           const err = await videoRes.json();
