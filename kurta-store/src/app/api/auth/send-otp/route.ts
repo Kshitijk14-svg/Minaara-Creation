@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { sendEmail } from '@/lib/email';
 import { redis, redisConfigured } from '@/lib/redis';
 import { MemoryRatelimit, type Limiter } from '@/lib/rate-limit-fallback';
+import { maskEmail } from '@/lib/mask-email';
 
 // Per-email OTP throttle. Falls back to in-memory limiting when Redis is not
 // configured — without this, ratelimit.limit() would throw and 500 the route.
@@ -105,9 +106,9 @@ export async function POST(req: NextRequest) {
     const mailStart = Date.now();
     try {
       await sendEmail({ to: email, subject, html });
-      console.log(`[otp-mail] sent type=${type} email=${email} ms=${Date.now() - mailStart}`);
+      console.log(`[otp-mail] sent type=${type} email=${maskEmail(email)} ms=${Date.now() - mailStart}`);
     } catch (mailErr) {
-      console.error(`[otp-mail] FAILED type=${type} email=${email} ms=${Date.now() - mailStart}`, mailErr);
+      console.error(`[otp-mail] FAILED type=${type} email=${maskEmail(email)} ms=${Date.now() - mailStart}`, mailErr);
       return NextResponse.json(
         { error: 'Could not send the verification email. Please try again shortly.' },
         { status: 502 }

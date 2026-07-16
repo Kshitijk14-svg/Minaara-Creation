@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { randomUUID, timingSafeEqual } from "crypto";
 import { redis } from "@/lib/redis";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { maskEmail } from "@/lib/mask-email";
 
 // Lock verification for an email after too many failed codes (brute-force guard).
 const MAX_OTP_ATTEMPTS = 5;
@@ -28,7 +29,7 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
   try {
     const fails = await redis.get<number>(failKey);
     if (typeof fails === 'number' && fails >= MAX_OTP_ATTEMPTS) {
-      console.log(`[otp] locked email=${email} fails=${fails}`);
+      console.log(`[otp] locked email=${maskEmail(email)} fails=${fails}`);
       throw new OtpLocked();
     }
   } catch (e) {
@@ -57,8 +58,8 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
     // a genuine expiry, since both currently surface the same generic
     // "incorrect or expired" message to the user.
     console.log(otpRecord
-      ? `[otp] expired email=${email} expiresAt=${otpRecord.expiresAt.toISOString()} now=${new Date().toISOString()}`
-      : `[otp] no-row email=${email}`);
+      ? `[otp] expired email=${maskEmail(email)} expiresAt=${otpRecord.expiresAt.toISOString()} now=${new Date().toISOString()}`
+      : `[otp] no-row email=${maskEmail(email)}`);
     if (otpRecord) await db.delete(otps).where(eq(otps.id, otpRecord.id));
     await registerFailure();
     return false;
@@ -69,7 +70,7 @@ async function verifyOtpCode(email: string, otp: string): Promise<boolean> {
   const codeMatches = stored.length === given.length && timingSafeEqual(stored, given);
 
   if (!codeMatches) {
-    console.log(`[otp] mismatch email=${email} storedLen=${stored.length} givenLen=${given.length}`);
+    console.log(`[otp] mismatch email=${maskEmail(email)} storedLen=${stored.length} givenLen=${given.length}`);
     await registerFailure();
     return false;
   }
