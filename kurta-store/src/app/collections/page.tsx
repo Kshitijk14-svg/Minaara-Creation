@@ -72,7 +72,7 @@ export default async function CollectionsPage() {
 
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', padding: '120px 0 80px' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+      <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ marginBottom: '48px', textAlign: 'center' }}>
           <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8C6F63', marginBottom: '8px', fontWeight: 500 }}>Curated for you</p>
           <h1 style={{ fontSize: 'clamp(2rem,3.5vw,3rem)', fontWeight: 300, color: '#1A1A1A', margin: 0 }}>All Collections</h1>

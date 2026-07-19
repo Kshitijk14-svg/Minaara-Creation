@@ -12,7 +12,7 @@ import { lenisInstance } from '@/components/providers/SmoothScrollProvider';
 import { LookbookHotspot } from '@/components/ui/LookbookHotspot';
 import { WishlistHeart } from '@/components/ui/WishlistHeart';
 import { Carousel } from '@/components/ui/Carousel';
-import { useIsMobile } from '@/lib/useIsMobile';
+import { useIsMobile, useIsTouchDevice } from '@/lib/useIsMobile';
 import { useDesktopScrollFX } from '@/app/home-animations/useDesktopScrollFX';
 import { useMobileScrollFX } from '@/app/home-animations/useMobileScrollFX';
 import type { Product, DesignConfig, LookbookHotspotData, SizeLabel, Collection, Testimonial, EditorialStory } from '@/types/schema';
@@ -152,6 +152,7 @@ export default function HomeClient({
   // mobile gets a lightweight IntersectionObserver+CSS substitute that never
   // imports gsap/Lenis at all. See src/app/home-animations/.
   const isMobile = useIsMobile();
+  const isTouchDevice = useIsTouchDevice();
   const scrollFXRefs = {
     heroRef, lookbookImgRef, hFeatRef, hFeatWrapRef, hFeatTrackRef,
     hAboutRef, hAboutWrapRef, hAboutTrackRef, statsRef, statsValueRefs,
@@ -405,7 +406,7 @@ export default function HomeClient({
               <h2 className="scroll-heading" style={{ fontSize: 'clamp(2rem,3vw,2.8rem)', fontWeight: 300, color: '#fff', margin: 0 }}>Featured Pieces</h2>
               <Link href="/collection?filter=featured" className="fade-up" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(244,236,225,0.7)', textDecoration: 'none', borderBottom: '1px solid rgba(244,236,225,0.4)', paddingBottom: '2px', marginTop: '14px', display: 'inline-block' }}>Explore More →</Link>
             </div>
-            {isMobile === true ? (
+            {isTouchDevice === true ? (
               <div style={{ padding: '0 24px 60px', position: 'relative', zIndex: 10 }}>
                 <Carousel ariaLabel="Featured Pieces" slideWidth="82%" className="carousel-on-dark">
                   {H_FEATURES.slice(0, 6).map((product, i) => (
@@ -709,7 +710,7 @@ export default function HomeClient({
             z-index: 20;
           }
 
-          @media (max-width: 1023px) {
+          @media (max-width: 1023px), (pointer: coarse) {
             .feat-title-wrap,
             .about-title-wrap {
               position: relative !important;

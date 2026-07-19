@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
-import Image from 'next/image';
 import { localResize } from '@/lib/media';
 import { useIsMobile } from '@/lib/useIsMobile';
 
@@ -89,35 +88,17 @@ export default function ProductVideoBubble({ videoUrl, posterUrl, productId }: P
           border: '2px solid rgba(255,255,255,0.9)', touchAction: 'none',
         }}
       >
-        {isMobile ? (
-          // Mobile: never fetch/autoplay the clip in the tiny bubble — show the
-          // poster with a play affordance; tapping expands straight to the
-          // modal (below), which is where playback actually begins.
-          <>
-            {posterSrc ? (
-              <Image src={posterSrc} alt="" fill sizes={`${BUBBLE_WIDTH}px`} style={{ objectFit: 'cover', pointerEvents: 'none' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', backgroundColor: '#000' }} />
-            )}
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
-              </div>
-            </div>
-          </>
-        ) : (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            poster={posterSrc}
-            muted
-            loop
-            autoPlay
-            playsInline
-            preload="none"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-          />
-        )}
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          poster={posterSrc}
+          muted
+          loop
+          autoPlay
+          playsInline
+          preload="none"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+        />
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}

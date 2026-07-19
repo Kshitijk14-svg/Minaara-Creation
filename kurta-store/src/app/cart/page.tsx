@@ -136,7 +136,7 @@ export default function CartPage() {
 
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingTop: '40px', paddingBottom: '80px' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
+      <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
         
         {/* Navigation Breadcrumb */}
         <div style={{ marginBottom: '32px' }}>

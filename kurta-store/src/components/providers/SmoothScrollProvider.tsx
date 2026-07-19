@@ -17,11 +17,13 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
-    // Skip smooth-scroll on mobile entirely — Lenis's per-frame rAF/lerp loop
-    // is the single biggest source of scroll jank on phone CPUs; native
-    // scrolling is both cheaper and what touch users expect anyway.
-    const isMobile = window.matchMedia('(max-width: 767px)').matches;
-    if (isMobile) return;
+    // Skip smooth-scroll on touch devices entirely — Lenis's per-frame
+    // rAF/lerp loop is the single biggest source of scroll jank on phone/
+    // tablet CPUs; native scrolling is both cheaper and what touch users
+    // expect anyway. `pointer: coarse` catches tablets too, not just narrow
+    // phone viewports.
+    const isTouchDevice = window.matchMedia('(pointer: coarse), (max-width: 767px)').matches;
+    if (isTouchDevice) return;
 
     gsap.registerPlugin(ScrollTrigger);
 

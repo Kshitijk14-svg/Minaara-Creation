@@ -266,7 +266,7 @@ export default function CheckoutPage() {
 
   return (
     <main style={{ backgroundColor: '#FAF8F5', minHeight: '100vh', paddingTop: '40px', paddingBottom: '80px' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+      <div className="checkout-container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
         <div style={{ marginBottom: '32px' }}>
           <Link href="/cart" style={{ fontFamily: 'var(--font-body)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-brand-charcoal)', opacity: 0.5, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
@@ -286,7 +286,7 @@ export default function CheckoutPage() {
             </Link>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '48px', alignItems: 'start' }}>
+          <div className="checkout-grid" style={{ alignItems: 'start' }}>
 
             {/* ── LEFT: Shipping Form ──────────────────────────────────────── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -303,7 +303,7 @@ export default function CheckoutPage() {
                     <FieldError msg={errors.fullName} />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="checkout-field-row">
                     <div>
                       <label style={labelStyle}>Email *</label>
                       <input style={inputStyle} type="email" value={form.email} onChange={handleField('email')} placeholder="priya@example.com" />
@@ -327,7 +327,7 @@ export default function CheckoutPage() {
                     <input style={inputStyle} value={form.line2} onChange={handleField('line2')} placeholder="Landmark, Area (optional)" />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="checkout-field-row">
                     <div>
                       <label style={labelStyle}>City *</label>
                       <input style={inputStyle} value={form.city} onChange={handleField('city')} placeholder="Jaipur" />
@@ -340,7 +340,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="checkout-field-row">
                     <div>
                       <label style={labelStyle}>Pincode *</label>
                       <input style={inputStyle} value={form.pincode} onChange={handleField('pincode')} placeholder="302001" maxLength={10} />
@@ -356,7 +356,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* ── RIGHT: Order Summary ─────────────────────────────────────── */}
-            <div style={{ position: 'sticky', top: '100px' }}>
+            <div className="checkout-summary">
               <div style={{ padding: '32px', backgroundColor: 'var(--glass-bg)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: '16px', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-shadow)' }}>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--color-brand-charcoal)', marginBottom: '24px' }}>
                   Order Summary
@@ -390,7 +390,7 @@ export default function CheckoutPage() {
                           −{fmt(discountINR)} discount applied
                         </p>
                       </div>
-                      <button onClick={() => { setAppliedCode(null); setDiscountINR(0); }} style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, color: 'var(--color-brand-charcoal)', opacity: 0.6 }}>
+                      <button onClick={() => { setAppliedCode(null); setDiscountINR(0); }} style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, color: 'var(--color-brand-charcoal)', opacity: 0.6, padding: '6px 4px' }}>
                         Remove
                       </button>
                     </div>

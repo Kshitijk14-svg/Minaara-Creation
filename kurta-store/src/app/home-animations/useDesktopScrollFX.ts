@@ -40,8 +40,10 @@ export function useDesktopScrollFX(enabled: boolean, refs: ScrollFXRefs, stats: 
 
       mm = gsap.matchMedia();
 
-      // 1. Desktop-only horizontal pinned animations (width >= 1024px)
-      mm.add("(min-width: 1024px)", () => {
+      // 1. Desktop-only horizontal pinned animations — width AND a real
+      // mouse/trackpad pointer, so touch tablets (which can be >=1024px wide
+      // in landscape) never get the wheel-oriented pin/scrub hijack.
+      mm.add("(min-width: 1024px) and (hover: hover) and (pointer: fine)", () => {
         // Featured Pieces horizontal scroll (pinned)
         if (refs.hFeatRef.current && refs.hFeatTrackRef.current && refs.hFeatWrapRef.current) {
           const track = refs.hFeatTrackRef.current;

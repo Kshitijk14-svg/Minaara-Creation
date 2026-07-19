@@ -469,6 +469,69 @@ h6 {
   }
 }
 
+/* Generic page container — same responsive side padding as .pdp-container,
+   reused by pages that don't need the two-column grid (cart, collections,
+   wishlist, collection detail). */
+.page-container {
+  padding: 0 16px;
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding: 0 24px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Checkout — stacked on mobile/tablet, side-by-side from 1024px
+   up, matching the .pdp-* breakpoint convention.
+   ───────────────────────────────────────────────────────────── */
+.checkout-container {
+  padding: 0 16px;
+}
+
+@media (min-width: 1024px) {
+  .checkout-container {
+    padding: 0 24px;
+  }
+}
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+}
+
+@media (min-width: 1024px) {
+  .checkout-grid {
+    grid-template-columns: 1fr 400px;
+    gap: 48px;
+  }
+}
+
+.checkout-summary {
+  position: static;
+}
+
+@media (min-width: 1024px) {
+  .checkout-summary {
+    position: sticky;
+    top: 100px;
+  }
+}
+
+.checkout-field-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .checkout-field-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    Product Card — Enhanced hover effects
    ───────────────────────────────────────────────────────────── */
