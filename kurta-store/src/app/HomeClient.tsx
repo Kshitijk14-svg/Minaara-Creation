@@ -120,18 +120,19 @@ export default function HomeClient({
     return () => clearTimeout(t);
   }, []);
 
-  // Scroll to top on mount. Routed through Lenis (when active) rather than a
-  // raw scrollTo — Lenis re-applies its own tracked scroll position every
-  // ticker frame, so a native scrollTo alone can get overridden a frame later
-  // by leftover inertia from the page just navigated away from.
+  // Resync Lenis's internally-tracked scroll offset to wherever the browser
+  // actually placed the viewport for this navigation (top for a fresh push,
+  // or the restored offset for Back/Forward) — otherwise Lenis's own rAF loop
+  // can fight the new page with leftover inertia from the page just left.
+  // Deliberately does NOT touch history.scrollRestoration or force position 0:
+  // both broke native Back/Forward scroll restoration site-wide.
   useEffect(() => {
-    window.history.scrollRestoration = 'manual';
     const lenis = lenisInstance.current;
-    if (lenis) {
-      lenis.scrollTo(0, { immediate: true, force: true });
-    } else {
-      window.scrollTo(0, 0);
-    }
+    if (!lenis) return;
+    const raf = requestAnimationFrame(() => {
+      lenis.scrollTo(window.scrollY, { immediate: true, force: true });
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   // Auto-cycle testimonials
