@@ -448,13 +448,13 @@ h6 {
 }
 
 .pdp-grid {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 32px;
 }
 
 @media (min-width: 1024px) {
   .pdp-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 64px;
   }
 }

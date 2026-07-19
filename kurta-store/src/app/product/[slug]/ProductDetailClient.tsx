@@ -346,7 +346,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             {/* Trust badges */}
             <div style={{ display: 'flex', gap: '24px', marginTop: '28px', paddingTop: '24px', borderTop: '1px solid var(--color-brand-mist)' }}>
               {[['✦', 'Free shipping over ₹2000'], ['⟳', 'Easy 7-day returns'], ['◇', 'Authentic handcraft']].map(([icon, text]) => (
-                <div key={text} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1, textAlign: 'center' }}>
+                <div key={text} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0, textAlign: 'center' }}>
                   <span style={{ color: 'var(--color-brand-gold)', fontSize: '16px' }}>{icon}</span>
                   <span style={{ fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-brand-charcoal)', opacity: 0.6 }}>{text}</span>
                 </div>
