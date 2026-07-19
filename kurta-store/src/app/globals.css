@@ -65,6 +65,7 @@
 
 html {
   /* scroll-behavior managed by Lenis smooth scroll library */
+  overflow-x: hidden;
 }
 
 body {
@@ -498,13 +499,13 @@ h6 {
 
 .checkout-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 32px;
 }
 
 @media (min-width: 1024px) {
   .checkout-grid {
-    grid-template-columns: 1fr 400px;
+    grid-template-columns: minmax(0, 1fr) 400px;
     gap: 48px;
   }
 }
@@ -522,13 +523,13 @@ h6 {
 
 .checkout-field-row {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
 @media (min-width: 640px) {
   .checkout-field-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 

@@ -399,7 +399,7 @@ export default function CheckoutPage() {
                       <input
                         type="text" placeholder="Coupon Code" value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)} disabled={isApplying}
-                        style={{ flex: 1, padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--color-brand-mist)', backgroundColor: 'rgba(255,255,255,0.6)', color: 'var(--color-brand-charcoal)', fontFamily: 'var(--font-body)', fontSize: '12px', outline: 'none', textTransform: 'uppercase' }}
+                        style={{ flex: 1, minWidth: 0, padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--color-brand-mist)', backgroundColor: 'rgba(255,255,255,0.6)', color: 'var(--color-brand-charcoal)', fontFamily: 'var(--font-body)', fontSize: '12px', outline: 'none', textTransform: 'uppercase' }}
                       />
                       <button type="submit" disabled={isApplying || !couponCode.trim()} style={{ padding: '10px 16px', backgroundColor: 'var(--color-brand-charcoal)', color: '#fff', borderRadius: '4px', border: 'none', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', cursor: 'pointer', opacity: (!couponCode.trim() || isApplying) ? 0.5 : 1 }}>
                         {isApplying ? '...' : 'Apply'}

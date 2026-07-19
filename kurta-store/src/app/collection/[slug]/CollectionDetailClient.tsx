@@ -44,7 +44,7 @@ export default function CollectionDetailClient({ collection, products }: { colle
       <section style={{ position: 'relative', height: '45vh', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
         <Image src={heroImage} alt={collection.name} fill priority style={{ objectFit: 'cover', objectPosition: 'center', opacity: 0.85 }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(12,8,6,0.75) 0%, transparent 70%)' }} />
-        <div style={{ position: 'relative', zIndex: 10, maxWidth: '1200px', width: '100%', margin: '0 auto', padding: '0 48px 44px' }}>
+        <div className="page-container" style={{ position: 'relative', zIndex: 10, maxWidth: '1200px', width: '100%', margin: '0 auto', paddingBottom: '44px' }}>
           <Link href="/collection" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(244,236,225,0.6)', textDecoration: 'none', marginBottom: '16px' }}>
             ← All Collections
           </Link>
@@ -61,7 +61,7 @@ export default function CollectionDetailClient({ collection, products }: { colle
 
       {/* Sort + Count Bar */}
       <section style={{ borderBottom: '1px solid #E6E2D8', backgroundColor: '#FAF8F5' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '14px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', paddingTop: '14px', paddingBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.5 }}>
             {sorted.length} piece{sorted.length !== 1 ? 's' : ''}
           </span>
