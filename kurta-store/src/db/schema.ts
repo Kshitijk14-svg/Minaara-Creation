@@ -144,15 +144,15 @@ export const orders = mysqlTable('orders', {
   notes:            text('notes'),
   cancelledAt:      datetime('cancelledAt'),
   deliveredAt:      datetime('deliveredAt'),
-  // ── Shiprocket fulfillment linkage ──
-  shiprocketOrderId:    varchar('shiprocketOrderId', { length: 50 }),
-  shiprocketShipmentId: varchar('shiprocketShipmentId', { length: 50 }),
+  // ── Delhivery fulfillment linkage ──
+  delhiveryOrderId:     varchar('delhiveryOrderId', { length: 50 }),
+  delhiveryShipmentId:  varchar('delhiveryShipmentId', { length: 50 }),
   awbNumber:            varchar('awbNumber', { length: 50 }),
   courierName:          varchar('courierName', { length: 100 }),
   trackingUrl:          varchar('trackingUrl', { length: 500 }),
-  shiprocketStatus:     varchar('shiprocketStatus', { length: 100 }),
+  delhiveryStatus:      varchar('delhiveryStatus', { length: 100 }),
   shippedAt:            datetime('shippedAt'),
-  shiprocketPushError:  text('shiprocketPushError'),
+  delhiveryPushError:   text('delhiveryPushError'),
   createdAt:        datetime('createdAt').notNull().$defaultFn(() => new Date()),
   updatedAt:        datetime('updatedAt').notNull().$defaultFn(() => new Date()),
 }, (t) => [
@@ -164,7 +164,7 @@ export const orders = mysqlTable('orders', {
   // Idempotency: a gateway payment id backs at most one order (NULLs allowed for
   // orders without a captured payment).
   uniqueIndex('order_gateway_unique').on(t.paymentGatewayId),
-  index('order_shiprocket_order_idx').on(t.shiprocketOrderId),
+  index('order_delhivery_order_idx').on(t.delhiveryOrderId),
   index('order_awb_idx').on(t.awbNumber),
 ]);
 

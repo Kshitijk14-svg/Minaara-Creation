@@ -359,10 +359,10 @@ export async function getOrdersAdminList(raw: OrdersAdminListParams) {
       cancelledAt: orders.cancelledAt, deliveredAt: orders.deliveredAt,
       paymentGatewayId: orders.paymentGatewayId, paymentMethod: orders.paymentMethod,
       notes: orders.notes,
-      shiprocketOrderId: orders.shiprocketOrderId, shiprocketShipmentId: orders.shiprocketShipmentId,
+      delhiveryOrderId: orders.delhiveryOrderId, delhiveryShipmentId: orders.delhiveryShipmentId,
       awbNumber: orders.awbNumber, courierName: orders.courierName, trackingUrl: orders.trackingUrl,
-      shiprocketStatus: orders.shiprocketStatus, shippedAt: orders.shippedAt,
-      shiprocketPushError: orders.shiprocketPushError,
+      delhiveryStatus: orders.delhiveryStatus, shippedAt: orders.shippedAt,
+      delhiveryPushError: orders.delhiveryPushError,
     })
       .from(orders)
       .where(conditions)

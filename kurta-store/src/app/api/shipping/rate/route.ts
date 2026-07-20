@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { products } from '@/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { getItemsWeightGrams, getShippingRateINR } from '@/lib/shiprocket';
+import { getItemsWeightGrams, getShippingRateINR } from '@/lib/delhivery';
 
 const RequestSchema = z.object({
   pincode: z.string().min(4).max(10),

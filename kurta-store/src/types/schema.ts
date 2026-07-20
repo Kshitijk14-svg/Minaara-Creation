@@ -120,15 +120,15 @@ export interface Order {
   notes?: string;
   cancelledAt?: string;
   deliveredAt?: string;
-  // Shiprocket fulfillment linkage
-  shiprocketOrderId?: string | null;
-  shiprocketShipmentId?: string | null;
+  // Delhivery fulfillment linkage
+  delhiveryOrderId?: string | null;
+  delhiveryShipmentId?: string | null;
   awbNumber?: string | null;
   courierName?: string | null;
   trackingUrl?: string | null;
-  shiprocketStatus?: string | null;
+  delhiveryStatus?: string | null;
   shippedAt?: string | null;
-  shiprocketPushError?: string | null;
+  delhiveryPushError?: string | null;
   createdAt: string;
   updatedAt: string;
   // Relations

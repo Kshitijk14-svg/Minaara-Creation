@@ -12,7 +12,7 @@ import { cacheGet, cacheSet, invalidateTags, CacheKeys, CacheTags } from '@/lib/
 import { getOrdersAdminList } from '@/lib/admin-list-queries';
 import { and, count, desc, eq, inArray, lt } from 'drizzle-orm';
 import { createOrder, CreateOrderSchema, mapOrderError, type CreateOrderOptions } from '@/lib/orders';
-import { pushOrderToShiprocket } from '@/lib/shiprocket';
+import { pushOrderToDelhivery } from '@/lib/delhivery';
 
 const ORDERS_USER_TTL = 120;
 
@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
     await invalidateTags(tagsToInvalidate);
 
     if (opts.paymentStatus === 'PAID') {
-      pushOrderToShiprocket(order.id).catch((err) => {
-        console.error('[POST /api/orders] shiprocket push failed:', err);
+      pushOrderToDelhivery(order.id).catch((err) => {
+        console.error('[POST /api/orders] delhivery push failed:', err);
       });
     }
 
@@ -139,9 +139,9 @@ export async function GET(request: NextRequest) {
         cancelledAt:      orders.cancelledAt, deliveredAt: orders.deliveredAt,
         paymentGatewayId: orders.paymentGatewayId, paymentMethod: orders.paymentMethod,
         notes:            orders.notes,
-        shiprocketOrderId: orders.shiprocketOrderId, shiprocketShipmentId: orders.shiprocketShipmentId,
+        delhiveryOrderId: orders.delhiveryOrderId, delhiveryShipmentId: orders.delhiveryShipmentId,
         awbNumber:        orders.awbNumber, courierName: orders.courierName, trackingUrl: orders.trackingUrl,
-        shiprocketStatus: orders.shiprocketStatus, shippedAt: orders.shippedAt,
+        delhiveryStatus:  orders.delhiveryStatus, shippedAt: orders.shippedAt,
       })
         .from(orders)
         .where(conditions)

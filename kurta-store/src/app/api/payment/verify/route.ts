@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { sendEmail, renderOrderConfirmationEmail } from '@/lib/email';
 import { createOrder, CreateOrderSchema, mapOrderError, OrderError } from '@/lib/orders';
-import { pushOrderToShiprocket } from '@/lib/shiprocket';
+import { pushOrderToDelhivery } from '@/lib/delhivery';
 import { getSessionUserId } from '@/lib/api-auth';
 import type { Order } from '@/types/schema';
 import { invalidateTags, CacheTags } from '@/lib/cache';
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const expectedAmountPaise = Number(rzpOrder.amount);
     // Read the shipping charge back from Razorpay's own record (set at
     // create-razorpay-order time) rather than trusting the client or
-    // re-querying Shiprocket, which could return a different rate by now.
+    // re-querying Delhivery, which could return a different rate by now.
     const shippingINR = Number(rzpOrder.notes?.shippingINR ?? 0);
 
     // 3. Create the order in-process. createOrder recomputes the total from DB
@@ -105,10 +105,10 @@ export async function POST(request: NextRequest) {
       console.error('[verify] confirmation email failed:', emailErr);
     });
 
-    // 5. Push to Shiprocket — non-blocking (pushOrderToShiprocket records its own
+    // 5. Push to Delhivery — non-blocking (pushOrderToDelhivery records its own
     //    failures on the order row; this outer .catch() is a last-resort net).
-    pushOrderToShiprocket(order.id).catch((err) => {
-      console.error('[verify] shiprocket push failed:', err);
+    pushOrderToDelhivery(order.id).catch((err) => {
+      console.error('[verify] delhivery push failed:', err);
     });
 
     return NextResponse.json({ success: true, orderId: order.id, orderNumber: order.orderNumber });

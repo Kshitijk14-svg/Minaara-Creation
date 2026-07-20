@@ -228,7 +228,7 @@ export default function ProductFormClient(props: ProductFormClientProps) {
                 <FormField label="Compare-at Price (₹)" hint="Shown as struck-through">
                   <input style={inputStyle} type="number" value={form.compareAtPriceINR} onChange={(e) => setForm((f) => ({ ...f, compareAtPriceINR: e.target.value }))} min="0" placeholder="3999" />
                 </FormField>
-                <FormField label="Weight (grams)" hint="Used for Shiprocket shipping">
+                <FormField label="Weight (grams)" hint="Used for shipping rate calculation">
                   <input style={inputStyle} type="number" value={form.weightGrams} onChange={(e) => setForm((f) => ({ ...f, weightGrams: e.target.value }))} min="0" placeholder="300" />
                 </FormField>
               </div>

@@ -91,7 +91,7 @@ export default function CartPage() {
   // Coupon discount calculation
   const discountINR = subtotalINR * (discountPercent / 100);
 
-  // Grand total in INR (delivery charges are calculated by Shiprocket at checkout, once a delivery location is entered)
+  // Grand total in INR (delivery charges are calculated by Delhivery at checkout, once a delivery location is entered)
   const totalINR = Math.max(0, subtotalINR - discountINR);
 
   // Apply coupon handler

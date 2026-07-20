@@ -123,11 +123,11 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
     finally { setSaving(false); }
   }
 
-  async function handlePushToShiprocket(orderId: string) {
+  async function handlePushToDelhivery(orderId: string) {
     setPushError(null);
     setPushingId(orderId);
     try {
-      const res = await fetch('/api/admin/shiprocket/push', {
+      const res = await fetch('/api/admin/delhivery/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId }),
@@ -137,7 +137,7 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
         setPushError(data.error || 'Push failed');
         return;
       }
-      const patch = { shiprocketOrderId: data.shiprocketOrderId, shiprocketShipmentId: data.shiprocketShipmentId, shiprocketPushError: null } as Partial<Order>;
+      const patch = { delhiveryOrderId: data.delhiveryOrderId, delhiveryShipmentId: data.delhiveryShipmentId, delhiveryPushError: null } as Partial<Order>;
       setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, ...patch } : o));
       if (detailOrder?.id === orderId) setDetailOrder((d) => d ? { ...d, ...patch } : d);
     } catch {
@@ -334,15 +334,15 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
 
                                   {/* Right: Status Update + Actions */}
                                   <div>
-                                    {/* Shiprocket shipping info */}
+                                    {/* Delhivery shipping info */}
                                     <div style={{ marginBottom: '20px' }}>
                                       <p style={sectionLabel}>Shipping</p>
-                                      {(detailOrder?.shiprocketOrderId || order.shiprocketOrderId) ? (
+                                      {(detailOrder?.delhiveryOrderId || order.delhiveryOrderId) ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                           {[
                                             { label: 'Courier', value: (detailOrder || order).courierName },
                                             { label: 'AWB', value: (detailOrder || order).awbNumber },
-                                            { label: 'Raw Status', value: (detailOrder || order).shiprocketStatus },
+                                            { label: 'Raw Status', value: (detailOrder || order).delhiveryStatus },
                                             { label: 'Shipped', value: (detailOrder || order).shippedAt ? formatDateTime((detailOrder || order).shippedAt!) : null },
                                           ].filter((row) => row.value).map((row) => (
                                             <div key={row.label} style={{ display: 'flex', gap: '8px' }}>
@@ -364,7 +364,7 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                       ) : order.paymentStatus === 'PAID' && !['CANCELLED', 'REFUNDED'].includes(order.status) ? (
                                         <div>
                                           <button
-                                            onClick={() => handlePushToShiprocket(order.id)}
+                                            onClick={() => handlePushToDelhivery(order.id)}
                                             disabled={pushingId === order.id}
                                             style={{
                                               padding: '8px 14px', borderRadius: '6px',
@@ -375,7 +375,7 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                               opacity: pushingId === order.id ? 0.6 : 1,
                                             }}
                                           >
-                                            {pushingId === order.id ? 'Pushing…' : 'Push to Shiprocket'}
+                                            {pushingId === order.id ? 'Pushing…' : 'Push to Delhivery'}
                                           </button>
                                           {pushError && pushingId === null && (
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: '#dc2626', margin: '8px 0 0' }}>{pushError}</p>

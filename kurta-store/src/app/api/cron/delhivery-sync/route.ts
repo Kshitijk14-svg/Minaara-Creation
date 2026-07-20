@@ -1,16 +1,16 @@
 /**
- * GET /api/cron/shiprocket-sync — polling fallback for Shiprocket status updates.
+ * GET /api/cron/delhivery-sync — polling fallback for Delhivery status updates.
  *
- * The webhook (src/app/api/webhooks/shiprocket/route.ts) is the primary path;
- * this cron exists in case a webhook delivery is missed. Requires a VPS
- * crontab entry to actually run (see OVH-deploy.md) — this repo has no
- * scheduler of its own.
+ * The webhook (src/app/api/webhooks/delhivery/route.ts) may or may not be
+ * available depending on the client's Delhivery plan, so this cron is the
+ * guaranteed-to-work path. Requires a VPS crontab entry to actually run (see
+ * OVH-deploy.md) — this repo has no scheduler of its own.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db/index';
 import { orders } from '@/db/schema';
 import { and, isNotNull, notInArray, eq } from 'drizzle-orm';
-import { isShiprocketConfigured, trackShipmentByAwb, applyIncomingStatusUpdate } from '@/lib/shiprocket';
+import { isDelhiveryConfigured, trackShipmentByAwb, applyIncomingStatusUpdate } from '@/lib/delhivery';
 import type { OrderStatus } from '@/types/schema';
 
 const TERMINAL_STATUSES: OrderStatus[] = ['DELIVERED', 'CANCELLED', 'REFUNDED', 'RTO_DELIVERED'];
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!isShiprocketConfigured()) {
-      return NextResponse.json({ skipped: true, reason: 'Shiprocket not configured' });
+    if (!isDelhiveryConfigured()) {
+      return NextResponse.json({ skipped: true, reason: 'Delhivery not configured' });
     }
 
     const inFlight = await db.select({ id: orders.id, orderNumber: orders.orderNumber, awbNumber: orders.awbNumber })
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       .where(and(
         eq(orders.paymentStatus, 'PAID'),
         notInArray(orders.status, TERMINAL_STATUSES),
-        isNotNull(orders.shiprocketOrderId),
+        isNotNull(orders.delhiveryOrderId),
         isNotNull(orders.awbNumber),
       ))
       .limit(BATCH_LIMIT);
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       const result = await trackShipmentByAwb(order.awbNumber);
       if (!result) continue;
       await applyIncomingStatusUpdate({
-        shiprocketOrderId: null,
+        delhiveryOrderId: null,
         orderNumber: order.orderNumber,
         rawStatus: result.rawStatus,
         awb: order.awbNumber,
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ checked: inFlight.length, updated });
   } catch (err) {
     if (process.env.NODE_ENV === 'development') {
-      console.error('[GET /api/cron/shiprocket-sync]', err);
+      console.error('[GET /api/cron/delhivery-sync]', err);
     }
-    return NextResponse.json({ error: 'Failed to run shiprocket sync' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to run delhivery sync' }, { status: 500 });
   }
 }

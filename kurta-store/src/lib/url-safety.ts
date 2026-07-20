@@ -1,6 +1,6 @@
 /**
  * Guards against javascript:/data: URI injection when rendering an
- * externally-sourced URL (e.g. Shiprocket tracking links) as an href.
+ * externally-sourced URL (e.g. Delhivery tracking links) as an href.
  * Isomorphic — safe to import from both server and client components.
  */
 export function isSafeHttpUrl(url: string | null | undefined): url is string {

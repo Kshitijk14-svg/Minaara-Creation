@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { getItemsWeightGrams, getShippingRateINR } = await import('@/lib/shiprocket');
+    const { getItemsWeightGrams, getShippingRateINR } = await import('@/lib/delhivery');
     const weightGrams = await getItemsWeightGrams(items);
     const { shippingINR } = await getShippingRateINR({ pincode, subtotalINR, weightGrams });
     const totalINR    = Math.max(0, subtotalINR - discountINR + shippingINR);
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       receipt:  `rcpt_${Date.now()}`,
       // Locks the shipping charge to this Razorpay order so /api/payment/verify
       // can read it back from Razorpay's own record instead of trusting the
-      // client or re-querying Shiprocket (which could return a different rate).
+      // client or re-querying Delhivery (which could return a different rate).
       notes: { shippingINR: String(shippingINR) },
     });
 

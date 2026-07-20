@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { SizeGuideModal } from '@/components/ui/SizeGuideModal';
+import { ImageZoomLightbox } from '@/components/ui/ImageZoomLightbox';
 import ProductVideoBubble from './ProductVideoBubble';
 import { WishlistHeart } from '@/components/ui/WishlistHeart';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics';
@@ -24,6 +25,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const [selectedSize, setSelectedSize]   = useState<SizeLabel | null>(null);
   const [quantity, setQuantity]           = useState(1);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen]   = useState(false);
   const [addedToCart, setAddedToCart]     = useState(false);
   const [sizeError, setSizeError]         = useState(false);
 
@@ -95,7 +97,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.2}
                 onDragEnd={handleDragEnd}
-                style={{ position: 'relative', width: '100%', aspectRatio: '3/4', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'var(--color-brand-blush)', touchAction: 'pan-y' }}
+                onTap={() => setLightboxOpen(true)}
+                role="button"
+                tabIndex={0}
+                aria-label="View larger image"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightboxOpen(true); } }}
+                style={{ position: 'relative', width: '100%', aspectRatio: '3/4', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'var(--color-brand-blush)', touchAction: 'pan-y', cursor: 'zoom-in' }}
               >
                 <img
                   src={localResize(images[selectedImage], 1000)}
@@ -357,6 +364,15 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       </div>
 
       <SizeGuideModal isOpen={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} />
+
+      <ImageZoomLightbox
+        images={images}
+        initialIndex={selectedImage}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={setSelectedImage}
+        altBase={product.title}
+      />
 
       {product.reelVideoUrl && (
         <ProductVideoBubble
