@@ -1,5 +1,5 @@
 /**
- * POST /api/coupons           — validate coupon (public) OR create (admin)
+ * POST /api/coupons           — validate coupon (signed-in) OR create (admin)
  * GET  /api/coupons           — paginated list (admin)
  * PATCH /api/coupons          — update coupon (admin)
  * DELETE /api/coupons?id=...  — delete/deactivate coupon (admin)
@@ -89,13 +89,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ coupon: serializeCoupon(coupon) }, { status: 201 });
     }
 
-    // Public/logged-in: validate coupon
+    // Signed-in customer: validate coupon
     const parsed = ValidateCouponSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.issues }, { status: 400 });
     }
 
     const { code, orderAmount } = parsed.data;
+
+    // Coupons are per-user (perUserLimit + couponUsages), so createOrder refuses
+    // one without a userId. Reject here too — otherwise a guest can "apply" a
+    // coupon, get charged the discounted amount, and have order creation fail
+    // after the money is captured.
+    const session = await getSession();
+    const userId  = (session?.user as any)?.id as string | undefined;
+    if (!userId) {
+      return NextResponse.json({ error: 'Sign in to use a coupon' }, { status: 401 });
+    }
+
     const cacheKey = CacheKeys.coupons.byCode(code);
     let coupon     = await cacheGet<any>(cacheKey);
 
@@ -128,17 +139,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Minimum order amount for this coupon is ₹${coupon.minOrderAmountINR}` }, { status: 422 });
     }
 
-    const session = await getSession();
-    const userId  = (session?.user as any)?.id as string | undefined;
-    if (userId) {
-      const [{ usageCount }] = await db
-        .select({ usageCount: count() })
-        .from(couponUsages)
-        .where(and(eq(couponUsages.couponId, coupon.id), eq(couponUsages.userId, userId)));
+    const [{ usageCount }] = await db
+      .select({ usageCount: count() })
+      .from(couponUsages)
+      .where(and(eq(couponUsages.couponId, coupon.id), eq(couponUsages.userId, userId)));
 
-      if (usageCount >= coupon.perUserLimit) {
-        return NextResponse.json({ error: 'You have already used this coupon the maximum number of times' }, { status: 422 });
-      }
+    if (usageCount >= coupon.perUserLimit) {
+      return NextResponse.json({ error: 'You have already used this coupon the maximum number of times' }, { status: 422 });
     }
 
     let discountAmountINR: number | null = null;
@@ -161,7 +168,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: any) {
     if (err?.code === 'ER_DUP_ENTRY') return NextResponse.json({ error: 'Coupon code already exists' }, { status: 409 });
-    if (process.env.NODE_ENV !== 'production') console.error('[POST /api/coupons]', err);
+    console.error('[POST /api/coupons]', err);
     return NextResponse.json({ error: 'Failed to process coupon request' }, { status: 500 });
   }
 }
@@ -182,7 +189,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') console.error('[GET /api/coupons]', err);
+    console.error('[GET /api/coupons]', err);
     return NextResponse.json({ error: 'Failed to fetch coupons' }, { status: 500 });
   }
 }
@@ -226,7 +233,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ coupon: serializeCoupon(coupon) });
   } catch (err: any) {
     if (err?.code === 'INVALID_PERCENT') return NextResponse.json({ error: err.message }, { status: 400 });
-    if (process.env.NODE_ENV !== 'production') console.error('[PATCH /api/coupons]', err);
+    console.error('[PATCH /api/coupons]', err);
     return NextResponse.json({ error: 'Failed to update coupon' }, { status: 500 });
   }
 }
@@ -260,7 +267,7 @@ export async function DELETE(request: NextRequest) {
     await invalidateTags([CacheTags.coupons]);
     return NextResponse.json({ success: true, message: message! });
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') console.error('[DELETE /api/coupons]', err);
+    console.error('[DELETE /api/coupons]', err);
     return NextResponse.json({ error: 'Failed to delete coupon' }, { status: 500 });
   }
 }

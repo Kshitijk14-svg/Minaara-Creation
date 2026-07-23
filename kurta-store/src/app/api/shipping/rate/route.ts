@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ shippingINR });
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') console.error('[POST /api/shipping/rate]', err);
+    console.error('[POST /api/shipping/rate]', err);
     return NextResponse.json({ error: 'Failed to calculate shipping' }, { status: 500 });
   }
 }
