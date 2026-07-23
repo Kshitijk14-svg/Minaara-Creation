@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       totalINR,
     });
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') console.error('[POST /api/payment/create-razorpay-order]', err);
+    console.error('[POST /api/payment/create-razorpay-order]', err);
     return NextResponse.json({ error: 'Failed to create payment order' }, { status: 500 });
   }
 }

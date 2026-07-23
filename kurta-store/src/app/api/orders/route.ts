@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const mapped = mapOrderError(err);
     if (mapped) return NextResponse.json({ error: mapped.message }, { status: mapped.status });
-    if (process.env.NODE_ENV !== 'production') console.error('[POST /api/orders]', err);
+    console.error('[POST /api/orders]', err);
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
 }

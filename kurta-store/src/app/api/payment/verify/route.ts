@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     if (mapped) {
       return NextResponse.json({ error: mapped.message }, { status: mapped.status });
     }
-    if (process.env.NODE_ENV !== 'production') console.error('[POST /api/payment/verify]', err);
+    console.error('[POST /api/payment/verify]', err);
     return NextResponse.json({ error: 'Payment verification failed' }, { status: 500 });
   }
 }
