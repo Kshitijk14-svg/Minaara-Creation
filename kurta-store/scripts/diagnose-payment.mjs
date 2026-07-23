@@ -56,7 +56,7 @@ else bad('DATABASE_URL', 'not set', 'Add it to .env.local.');
 
 if (!RAZORPAY_KEY_ID) {
   bad('RAZORPAY_KEY_ID', 'not set',
-      'Add RAZORPAY_KEY_ID to /var/www/minaara/app/.env.local (dashboard.razorpay.com > Settings > API Keys), then: pm2 restart minaara');
+      `Add RAZORPAY_KEY_ID to ${envPath} (dashboard.razorpay.com > Settings > API Keys), then: pm2 restart minaara`);
 } else {
   const mode = RAZORPAY_KEY_ID.startsWith('rzp_live_') ? 'LIVE'
              : RAZORPAY_KEY_ID.startsWith('rzp_test_') ? 'TEST'
@@ -66,9 +66,18 @@ if (!RAZORPAY_KEY_ID) {
            'A live site needs an rzp_live_ key id. A test key returns 401 from the live API.');
 }
 
-if (RAZORPAY_KEY_SECRET) ok('RAZORPAY_KEY_SECRET', maskSecret(RAZORPAY_KEY_SECRET));
-else bad('RAZORPAY_KEY_SECRET', 'not set',
-         'Add RAZORPAY_KEY_SECRET to /var/www/minaara/app/.env.local, then: pm2 restart minaara');
+if (RAZORPAY_KEY_SECRET) {
+  // Razorpay secrets are 24 chars — a different length means the value was
+  // truncated, quoted, or has stray whitespace, which is a distinct fault
+  // from "the pair is simply wrong".
+  const suffix = RAZORPAY_KEY_SECRET.length === 24 ? '' : ' — expected 24, value looks malformed';
+  if (suffix) bad('RAZORPAY_KEY_SECRET', maskSecret(RAZORPAY_KEY_SECRET) + suffix,
+                  `Re-paste the secret into ${envPath} with no surrounding spaces, then: pm2 restart minaara`);
+  else ok('RAZORPAY_KEY_SECRET', maskSecret(RAZORPAY_KEY_SECRET));
+} else {
+  bad('RAZORPAY_KEY_SECRET', 'not set',
+      `Add RAZORPAY_KEY_SECRET to ${envPath}, then: pm2 restart minaara`);
+}
 
 // ── 2. Database ──────────────────────────────────────────────────────────────
 // The payment path's queries verbatim, so a missing column surfaces as the real
@@ -143,7 +152,7 @@ if (skipGateway) {
     bad('orders.create',
         `status=${status ?? 'n/a'} code=${inner.code ?? 'n/a'} reason=${inner.reason ?? 'n/a'} description=${inner.description ?? err?.message ?? String(err)}`,
         status === 401
-          ? 'Keys are wrong/revoked, or a test key is being used against live. Replace RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET in /var/www/minaara/app/.env.local with Live-mode values, then: pm2 restart minaara'
+          ? `The secret does not match this key id, or the pair was revoked/regenerated. Confirm the Live key id in dashboard.razorpay.com > Settings > API Keys still matches the one above; if not, regenerate the pair. Then update both values in ${envPath} and: pm2 restart minaara`
           : 'Read the description above — it is Razorpay\'s own wording (account not activated, feature disabled, network unreachable, etc.).');
     if (!status) {
       // No HTTP status at all means the request never completed — network, not auth.
