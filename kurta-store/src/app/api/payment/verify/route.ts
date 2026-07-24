@@ -5,6 +5,7 @@ import { sendEmail, renderOrderConfirmationEmail } from '@/lib/email';
 import { createOrder, CreateOrderSchema, mapOrderError, OrderError } from '@/lib/orders';
 import { pushOrderToDelhivery } from '@/lib/delhivery';
 import { getSessionUserId } from '@/lib/api-auth';
+import { COD_ADVANCE_INR } from '@/lib/payment-constants';
 import type { Order } from '@/types/schema';
 import { invalidateTags, CacheTags } from '@/lib/cache';
 import { db } from '@/db/index';
@@ -56,10 +57,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment not captured' }, { status: 400 });
     }
     const expectedAmountPaise = Number(rzpOrder.amount);
-    // Read the shipping charge back from Razorpay's own record (set at
-    // create-razorpay-order time) rather than trusting the client or
-    // re-querying Delhivery, which could return a different rate by now.
-    const shippingINR = Number(rzpOrder.notes?.shippingINR ?? 0);
+    // Read the shipping charge (and payment method) back from Razorpay's own
+    // record (set at create-razorpay-order time) rather than trusting the
+    // client or re-deriving them, which could disagree by now.
+    const shippingINR   = Number(rzpOrder.notes?.shippingINR ?? 0);
+    const paymentMethod = rzpOrder.notes?.paymentMethod === 'COD' ? 'COD' : 'RAZORPAY';
+    const codAdvanceINR = paymentMethod === 'COD'
+      ? Number(rzpOrder.notes?.codAdvanceINR ?? COD_ADVANCE_INR)
+      : undefined;
 
     // 3. Create the order in-process. createOrder recomputes the total from DB
     //    prices and rejects unless it matches expectedAmountPaise; the gateway
@@ -70,11 +75,12 @@ export async function POST(request: NextRequest) {
     try {
       order = await createOrder(orderPayload, {
         userId,
-        paymentStatus:       'PAID',
+        paymentStatus:       paymentMethod === 'COD' ? 'COD_PENDING' : 'PAID',
         paymentGatewayId:    razorpay_payment_id,
-        paymentMethod:       'RAZORPAY',
+        paymentMethod,
         expectedAmountPaise,
         shippingINR,
+        codAdvanceINR,
       });
     } catch (err) {
       // Double-submit of the same verified payment: the order already exists —

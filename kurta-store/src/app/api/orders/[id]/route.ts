@@ -21,7 +21,7 @@ const ORDER_TTL = 300;
 
 const UpdateOrderSchema = z.object({
   status:           z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RTO_INITIATED', 'RTO_DELIVERED', 'CANCELLED', 'REFUNDED']).optional(),
-  paymentStatus:    z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED']).optional(),
+  paymentStatus:    z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'COD_PENDING']).optional(),
   paymentGatewayId: z.string().optional(),
   paymentMethod:    z.string().optional(),
   notes:            z.string().optional(),

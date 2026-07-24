@@ -133,13 +133,16 @@ export const orders = mysqlTable('orders', {
   customerEmail:    varchar('customerEmail', { length: 255 }).notNull(),
   customerPhone:    varchar('customerPhone', { length: 20 }).notNull(),
   status:           mysqlEnum('status', ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RTO_INITIATED', 'RTO_DELIVERED', 'CANCELLED', 'REFUNDED']).default('PENDING').notNull(),
-  paymentStatus:    mysqlEnum('paymentStatus', ['PENDING', 'PAID', 'FAILED', 'REFUNDED']).default('PENDING').notNull(),
+  paymentStatus:    mysqlEnum('paymentStatus', ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'COD_PENDING']).default('PENDING').notNull(),
   paymentGatewayId: varchar('paymentGatewayId', { length: 255 }),
   paymentMethod:    varchar('paymentMethod', { length: 100 }),
   subtotalINR:      double('subtotalINR').notNull(),
   discountAmountINR: double('discountAmountINR').default(0).notNull(),
   shippingINR:      double('shippingINR').default(0).notNull(),
   totalAmountINR:   double('totalAmountINR').notNull(),
+  // ₹ actually collected online for a Cash-on-Delivery order (fixed advance);
+  // 0 for every non-COD order, where totalAmountINR is collected in full.
+  codAdvanceINR:    double('codAdvanceINR').default(0).notNull(),
   currency:         varchar('currency', { length: 10 }).default('INR').notNull(),
   notes:            text('notes'),
   cancelledAt:      datetime('cancelledAt'),

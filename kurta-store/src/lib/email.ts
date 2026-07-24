@@ -124,13 +124,20 @@ export function renderOrderConfirmationEmail(order: Order): string {
       </p>
     </div>` : '';
 
+  const isCod = order.paymentMethod === 'COD';
+  const codBalanceINR = Math.max(0, order.totalAmountINR - (order.codAdvanceINR ?? 0));
+
   const content = `
     <h2 style="font-family:Georgia,serif;font-weight:normal;font-size:26px;color:#0f2a5b;margin:0 0 8px;">
       Order Confirmed ✓
     </h2>
-    <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 24px;">
+    <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 ${isCod ? 8 : 24}px;">
       Thank you for shopping with us! Your order <strong style="color:#0f2a5b;">${escapeHtml(order.orderNumber)}</strong> has been received and is being processed.
     </p>
+    ${isCod ? `
+    <p style="font-size:13px;color:#a68026;line-height:1.6;margin:0 0 24px;">
+      You've paid a ₹${(order.codAdvanceINR ?? 0).toLocaleString('en-IN')} advance online. The remaining ₹${codBalanceINR.toLocaleString('en-IN')} is payable in cash to our courier on delivery. This advance is non-refundable if delivery is refused or cancelled.
+    </p>` : ''}
 
     <!-- Order Items -->
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #ede9df;">
@@ -157,10 +164,23 @@ export function renderOrderConfirmationEmail(order: Order): string {
       <tr>
         <td colspan="2" style="padding:8px 0;border-top:1px solid #ede9df;"></td>
       </tr>
+      ${isCod ? `
+      <tr>
+        <td style="font-size:16px;font-weight:700;color:#0f2a5b;padding:4px 0;">Order Total</td>
+        <td style="font-family:Georgia,serif;font-size:22px;color:#0f2a5b;text-align:right;padding:4px 0;">₹${order.totalAmountINR.toLocaleString('en-IN')}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#888;padding:4px 0;">Advance Paid Online</td>
+        <td style="font-size:13px;color:#0f2a5b;text-align:right;padding:4px 0;">₹${(order.codAdvanceINR ?? 0).toLocaleString('en-IN')}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#888;padding:4px 0;">Balance Due on Delivery (Cash)</td>
+        <td style="font-size:13px;color:#0f2a5b;text-align:right;padding:4px 0;">₹${codBalanceINR.toLocaleString('en-IN')}</td>
+      </tr>` : `
       <tr>
         <td style="font-size:16px;font-weight:700;color:#0f2a5b;padding:4px 0;">Total Paid</td>
         <td style="font-family:Georgia,serif;font-size:22px;color:#0f2a5b;text-align:right;padding:4px 0;">₹${order.totalAmountINR.toLocaleString('en-IN')}</td>
-      </tr>
+      </tr>`}
     </table>
 
     ${addrHtml}

@@ -354,7 +354,7 @@ export async function getOrdersAdminList(raw: OrdersAdminListParams) {
       customerEmail: orders.customerEmail, customerPhone: orders.customerPhone,
       status: orders.status, paymentStatus: orders.paymentStatus,
       discountAmountINR: orders.discountAmountINR, subtotalINR: orders.subtotalINR,
-      totalAmountINR: orders.totalAmountINR, currency: orders.currency,
+      totalAmountINR: orders.totalAmountINR, codAdvanceINR: orders.codAdvanceINR, currency: orders.currency,
       createdAt: orders.createdAt, updatedAt: orders.updatedAt,
       cancelledAt: orders.cancelledAt, deliveredAt: orders.deliveredAt,
       paymentGatewayId: orders.paymentGatewayId, paymentMethod: orders.paymentMethod,

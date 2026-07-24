@@ -65,6 +65,7 @@ function getStatusColor(status: string) {
     case 'PAID': return { bg: 'rgba(34, 197, 94, 0.08)', color: '#16a34a', border: 'rgba(34, 197, 94, 0.2)' };
     case 'PENDING': return { bg: 'rgba(166, 128, 38, 0.08)', color: '#A68026', border: 'rgba(166, 128, 38, 0.2)' };
     case 'FAILED': return { bg: 'rgba(220, 38, 38, 0.08)', color: '#dc2626', border: 'rgba(220, 38, 38, 0.2)' };
+    case 'COD_PENDING': return { bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb', border: 'rgba(37, 99, 235, 0.2)' };
     default: return { bg: 'rgba(15, 42, 91, 0.06)', color: '#0F2A5B', border: 'rgba(15, 42, 91, 0.12)' };
   }
 }
@@ -523,7 +524,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                               }}>
                                 {order.paymentStatus}
                               </span>
-                              {order.paymentStatus === 'PAID' && (
+                              {['PAID', 'COD_PENDING'].includes(order.paymentStatus) && (
                                 <span style={{
                                   padding: '3px 10px', borderRadius: '100px',
                                   fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em',

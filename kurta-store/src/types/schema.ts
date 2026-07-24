@@ -5,7 +5,7 @@
 export type Currency = 'INR' | 'USD' | 'EUR';
 export type SizeLabel = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'RTO_INITIATED' | 'RTO_DELIVERED' | 'CANCELLED' | 'REFUNDED';
-export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'COD_PENDING';
 export type DiscountType = 'PERCENT' | 'FIXED';
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'STAFF' | 'CUSTOMER';
 
@@ -116,6 +116,7 @@ export interface Order {
   discountAmountINR: number;
   subtotalINR: number;
   totalAmountINR: number;
+  codAdvanceINR: number;
   currency: Currency;
   notes?: string;
   cancelledAt?: string;

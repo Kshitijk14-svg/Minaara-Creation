@@ -12,7 +12,7 @@ import LoadingSkeleton from './shared/LoadingSkeleton';
 import StatusBadge from './shared/StatusBadge';
 
 const ORDER_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RTO_INITIATED', 'RTO_DELIVERED', 'CANCELLED', 'REFUNDED'];
-const PAYMENT_STATUSES: PaymentStatus[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
+const PAYMENT_STATUSES: PaymentStatus[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'COD_PENDING'];
 
 function formatDate(s: string) {
   return new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -305,6 +305,10 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                         { label: 'Subtotal', value: `₹${(detailOrder || order).subtotalINR?.toLocaleString('en-IN') || '—'}` },
                                         ...(((detailOrder || order).discountAmountINR || 0) > 0 ? [{ label: 'Discount', value: `-₹${(detailOrder || order).discountAmountINR?.toLocaleString('en-IN')}` }] : []),
                                         { label: 'Total', value: `₹${(detailOrder || order).totalAmountINR?.toLocaleString('en-IN')}` },
+                                        ...((detailOrder || order).paymentMethod === 'COD' ? [
+                                          { label: 'Advance Paid', value: `₹${((detailOrder || order).codAdvanceINR ?? 0).toLocaleString('en-IN')}` },
+                                          { label: 'Balance Due (COD)', value: `₹${Math.max(0, (detailOrder || order).totalAmountINR - ((detailOrder || order).codAdvanceINR ?? 0)).toLocaleString('en-IN')}` },
+                                        ] : []),
                                       ].map((row) => (
                                         <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                                           <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.55 }}>{row.label}</span>
@@ -361,7 +365,7 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                             </a>
                                           )}
                                         </div>
-                                      ) : order.paymentStatus === 'PAID' && !['CANCELLED', 'REFUNDED'].includes(order.status) ? (
+                                      ) : ['PAID', 'COD_PENDING'].includes(order.paymentStatus) && !['CANCELLED', 'REFUNDED'].includes(order.status) ? (
                                         <div>
                                           <button
                                             onClick={() => handlePushToDelhivery(order.id)}
@@ -383,7 +387,7 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                         </div>
                                       ) : (
                                         <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-brand-charcoal)', opacity: 0.4, margin: 0 }}>
-                                          Not applicable until order is paid.
+                                          Not applicable until payment is confirmed.
                                         </p>
                                       )}
                                     </div>

@@ -40,6 +40,7 @@ async function getOrder(id: string): Promise<Order | null> {
       discountAmountINR: order.discountAmountINR,
       subtotalINR: order.subtotalINR,
       totalAmountINR: order.totalAmountINR,
+      codAdvanceINR: order.codAdvanceINR,
       currency: order.currency as Order['currency'],
       notes: order.notes ?? undefined,
       cancelledAt: order.cancelledAt?.toISOString(),

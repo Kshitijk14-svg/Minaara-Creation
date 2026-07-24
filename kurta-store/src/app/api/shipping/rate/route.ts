@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { db } from '@/db/index';
 import { products } from '@/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { getItemsWeightGrams, getShippingRateINR } from '@/lib/delhivery';
+import { getItemsWeightGrams, getShippingRateINR, checkCodServiceability } from '@/lib/delhivery';
 
 const RequestSchema = z.object({
   pincode: z.string().min(4).max(10),
@@ -17,6 +17,7 @@ const RequestSchema = z.object({
     productId: z.string().uuid(),
     quantity:  z.number().int().positive(),
   })).min(1),
+  paymentMethod: z.enum(['RAZORPAY', 'COD']).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request', issues: parsed.error.issues }, { status: 400 });
     }
 
-    const { pincode, items } = parsed.data;
+    const { pincode, items, paymentMethod } = parsed.data;
     const productIds = [...new Set(items.map((i) => i.productId))];
 
     const dbProducts = await db.select({ id: products.id, priceINR: products.priceINR, weightGrams: products.weightGrams })
@@ -42,9 +43,12 @@ export async function POST(request: NextRequest) {
     const subtotalINR = items.reduce((sum, item) => sum + (priceMap.get(item.productId) ?? 0) * item.quantity, 0);
     const weightGrams  = await getItemsWeightGrams(items);
 
-    const { shippingINR } = await getShippingRateINR({ pincode, subtotalINR, weightGrams });
+    const [{ shippingINR }, { codAvailable }] = await Promise.all([
+      getShippingRateINR({ pincode, subtotalINR, weightGrams, paymentMethod }),
+      checkCodServiceability(pincode),
+    ]);
 
-    return NextResponse.json({ shippingINR });
+    return NextResponse.json({ shippingINR, codAvailable });
   } catch (err) {
     console.error('[POST /api/shipping/rate]', err);
     return NextResponse.json({ error: 'Failed to calculate shipping' }, { status: 500 });

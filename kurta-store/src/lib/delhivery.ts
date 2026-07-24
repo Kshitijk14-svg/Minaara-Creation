@@ -130,8 +130,8 @@ function parseInvoiceChargesResponse(data: any): number | null {
  * configured, the pickup pincode is missing, or the API call fails for any
  * reason — a shipping quote must never block checkout.
  */
-export async function getShippingRateINR(params: { pincode: string; subtotalINR: number; weightGrams: number }): Promise<ShippingRateResult> {
-  const { pincode, subtotalINR, weightGrams } = params;
+export async function getShippingRateINR(params: { pincode: string; subtotalINR: number; weightGrams: number; paymentMethod?: 'RAZORPAY' | 'COD' }): Promise<ShippingRateResult> {
+  const { pincode, subtotalINR, weightGrams, paymentMethod } = params;
   if (subtotalINR >= FREE_SHIPPING_THRESHOLD_INR || subtotalINR === 0) {
     return { shippingINR: 0, source: 'flat' };
   }
@@ -147,7 +147,7 @@ export async function getShippingRateINR(params: { pincode: string; subtotalINR:
       cgm: String(Math.max(weightGrams, 1)),
       md: 'S',
       ss: 'Delivered',
-      pt: 'Pre-paid',
+      pt: paymentMethod === 'COD' ? 'COD' : 'Pre-paid',
     });
     const res = await delhiveryFetch(`/api/kinko/v1/invoice/charges/.json?${qs.toString()}`);
     if (!res.ok) return flatFallback;
@@ -160,6 +160,48 @@ export async function getShippingRateINR(params: { pincode: string; subtotalINR:
   } catch (err) {
     console.error('[delhivery] rate lookup failed:', err);
     return flatFallback;
+  }
+}
+
+// ── COD pincode serviceability ───────────────────────────────────────────────
+
+export interface CodServiceabilityResult {
+  codAvailable: boolean;
+  source: 'delhivery' | 'unconfigured' | 'error';
+}
+
+/**
+ * ⚠️ UNVERIFIED endpoint shape — Delhivery's pincode serviceability lookup is
+ * typically `GET /c/api/pin-codes/json/?filter_codes=<pincode>`, returning a
+ * `delivery_codes` array with a nested `postal_code.cod` flag ('Y'/'N').
+ * Confirm the exact field names against real docs/sandbox before go-live.
+ */
+function parsePincodeServiceabilityResponse(data: any): boolean | null {
+  const entry = data?.delivery_codes?.[0]?.postal_code;
+  if (!entry || entry.cod === undefined) return null;
+  return String(entry.cod).toUpperCase() === 'Y';
+}
+
+/**
+ * Whether Delhivery can run Cash-on-Delivery to a given pincode. Never blocks
+ * checkout: any misconfiguration or failure resolves to `codAvailable: false`
+ * so the caller simply hides the COD option and falls back to prepaid.
+ */
+export async function checkCodServiceability(pincode: string): Promise<CodServiceabilityResult> {
+  if (!isDelhiveryConfigured()) return { codAvailable: false, source: 'unconfigured' };
+
+  try {
+    const res = await delhiveryFetch(`/c/api/pin-codes/json/?filter_codes=${encodeURIComponent(pincode)}`);
+    if (!res.ok) return { codAvailable: false, source: 'error' };
+
+    const data = await res.json();
+    const codAvailable = parsePincodeServiceabilityResponse(data);
+    if (codAvailable === null) return { codAvailable: false, source: 'error' };
+
+    return { codAvailable, source: 'delhivery' };
+  } catch (err) {
+    console.error('[delhivery] COD serviceability check failed:', err);
+    return { codAvailable: false, source: 'error' };
   }
 }
 
@@ -214,6 +256,7 @@ export async function pushOrderToDelhivery(orderId: string): Promise<void> {
     if (!address) throw new Error('Order has no shipping address');
 
     const totalWeightGrams = await getItemsWeightGrams(items);
+    const isCod = order.paymentMethod === 'COD';
 
     const payload = {
       order: order.orderNumber,
@@ -226,8 +269,11 @@ export async function pushOrderToDelhivery(orderId: string): Promise<void> {
       country: address.country || 'India',
       phone: order.customerPhone,
       products_desc: items.map((item) => item.title).join(', '),
-      payment_mode: 'Prepaid',
+      payment_mode: isCod ? 'COD' : 'Prepaid',
       total_amount: order.totalAmountINR,
+      // Balance the courier collects in cash — the ₹200 advance was already
+      // captured online, so the declared COD amount excludes it.
+      ...(isCod ? { cod_amount: Math.max(0, order.totalAmountINR - order.codAdvanceINR) } : {}),
       weight: totalWeightGrams,
       shipment_length: Number(process.env.DELHIVERY_DEFAULT_BOX_LENGTH_CM || 30),
       shipment_width: Number(process.env.DELHIVERY_DEFAULT_BOX_BREADTH_CM || 25),

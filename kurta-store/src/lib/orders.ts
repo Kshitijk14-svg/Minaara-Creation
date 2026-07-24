@@ -50,13 +50,14 @@ export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
 export interface CreateOrderOptions {
   /** Logged-in user id, if any (attached to the order + required for coupons). */
   userId?: string | null;
-  paymentStatus?:   'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  paymentStatus?:   'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'COD_PENDING';
   paymentGatewayId?: string | null;
   paymentMethod?:    string | null;
   /**
    * When set, the order's recomputed chargeable total (subtotal − discount +
    * shipping, in paise) must equal this value or the transaction is rejected.
    * Used to bind a recorded order to the amount actually paid at the gateway.
+   * For COD orders (see `codAdvanceINR`), this binds to the advance instead.
    */
   expectedAmountPaise?: number;
   /**
@@ -65,6 +66,14 @@ export interface CreateOrderOptions {
    * computeShippingINR rule when omitted, e.g. for internal/admin order creation.
    */
   shippingINR?: number;
+  /**
+   * Set only for Cash-on-Delivery orders — the fixed advance actually charged
+   * online (see COD_ADVANCE_INR). When present, `expectedAmountPaise` is
+   * checked against this amount instead of the full order total, since COD
+   * intentionally charges less online (the balance is collected as cash on
+   * delivery).
+   */
+  codAdvanceINR?: number;
 }
 
 /** Business/validation errors carry a machine-readable `code`. */
@@ -100,6 +109,7 @@ export interface CreatedOrder {
   discountAmountINR: number;
   shippingINR: number;
   totalAmountINR: number;
+  codAdvanceINR: number;
   paymentStatus: string;
   paymentGatewayId: string | null;
   paymentMethod: string | null;
@@ -247,8 +257,11 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
     const totalAmountINR  = subtotalINR - discountAmountINR + shippingINR;
 
     // 5b. Bind to the amount actually paid at the gateway (tamper/replay protection).
+    // For COD orders, `codAdvanceINR` is the fixed advance charged online —
+    // deliberately less than `totalAmountINR`, since the balance is cash on delivery.
     if (opts.expectedAmountPaise !== undefined) {
-      const chargeablePaise = Math.round(totalAmountINR * 100);
+      const chargeableINR   = opts.codAdvanceINR !== undefined ? opts.codAdvanceINR : totalAmountINR;
+      const chargeablePaise = Math.round(chargeableINR * 100);
       if (chargeablePaise !== opts.expectedAmountPaise) {
         throw new OrderError(
           'AMOUNT_MISMATCH',
@@ -275,6 +288,7 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
       subtotalINR,
       shippingINR,
       totalAmountINR,
+      codAdvanceINR: opts.codAdvanceINR ?? 0,
     });
 
     // 7. Shipping address
@@ -343,6 +357,7 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
       discountAmountINR,
       shippingINR,
       totalAmountINR,
+      codAdvanceINR:    opts.codAdvanceINR ?? 0,
       paymentStatus:    opts.paymentStatus ?? 'PENDING',
       paymentGatewayId: opts.paymentGatewayId ?? null,
       paymentMethod:    opts.paymentMethod ?? null,

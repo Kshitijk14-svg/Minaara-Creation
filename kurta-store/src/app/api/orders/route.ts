@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       paymentGatewayId:    body.paymentGatewayId ?? null,
       paymentMethod:       body.paymentMethod ?? null,
       expectedAmountPaise: typeof body.expectedAmountPaise === 'number' ? body.expectedAmountPaise : undefined,
+      codAdvanceINR:       typeof body.codAdvanceINR === 'number' ? body.codAdvanceINR : undefined,
     };
 
     const order = await createOrder(parsed.data, opts);
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (order.userId) tagsToInvalidate.push(CacheTags.ordersByUser(order.userId));
     await invalidateTags(tagsToInvalidate);
 
-    if (opts.paymentStatus === 'PAID') {
+    if (opts.paymentStatus === 'PAID' || opts.paymentStatus === 'COD_PENDING') {
       pushOrderToDelhivery(order.id).catch((err) => {
         console.error('[POST /api/orders] delhivery push failed:', err);
       });
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
         customerEmail:    orders.customerEmail, customerPhone: orders.customerPhone,
         status:           orders.status, paymentStatus: orders.paymentStatus,
         discountAmountINR: orders.discountAmountINR, subtotalINR: orders.subtotalINR,
-        totalAmountINR:   orders.totalAmountINR, currency: orders.currency,
+        totalAmountINR:   orders.totalAmountINR, codAdvanceINR: orders.codAdvanceINR, currency: orders.currency,
         createdAt:        orders.createdAt, updatedAt: orders.updatedAt,
         cancelledAt:      orders.cancelledAt, deliveredAt: orders.deliveredAt,
         paymentGatewayId: orders.paymentGatewayId, paymentMethod: orders.paymentMethod,

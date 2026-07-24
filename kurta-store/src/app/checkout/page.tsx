@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
 import { localResize } from '@/lib/media';
+import { COD_ADVANCE_INR } from '@/lib/payment-constants';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€' };
 
@@ -68,14 +69,20 @@ export default function CheckoutPage() {
 
   const [shippingINR, setShippingINR]     = useState<number | null>(null);
   const [shippingStatus, setShippingStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [codAvailable, setCodAvailable]   = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'COD'>('RAZORPAY');
 
   const fmt = useCallback(
     (p: number) => `${CURRENCY_SYMBOLS[currency] ?? ''}${convertPrice(p).toFixed(currency === 'INR' ? 0 : 2)}`,
     [currency, convertPrice],
   );
 
-  const fetchShippingRate = useCallback(async (pincode: string): Promise<number> => {
-    if (subtotalINR >= 2000 || subtotalINR === 0) return 0;
+  // Always hits the API once a pincode is entered — even when shipping is
+  // free (subtotal ≥ ₹2,000) we still need to learn COD serviceability for
+  // this pincode, which the flat client-side shortcut can't tell us.
+  const fetchShippingRate = useCallback(async (pincode: string): Promise<{ shippingINR: number; codAvailable: boolean }> => {
+    if (subtotalINR === 0) return { shippingINR: 0, codAvailable: false };
+    const fallbackShippingINR = subtotalINR >= 2000 ? 0 : 150;
     try {
       const res = await fetch('/api/shipping/rate', {
         method: 'POST',
@@ -83,39 +90,54 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           pincode,
           items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          paymentMethod,
         }),
       });
-      if (!res.ok) return 150;
+      if (!res.ok) return { shippingINR: fallbackShippingINR, codAvailable: false };
       const data = await res.json();
-      return typeof data.shippingINR === 'number' ? data.shippingINR : 150;
+      return {
+        shippingINR:  typeof data.shippingINR === 'number' ? data.shippingINR : fallbackShippingINR,
+        codAvailable: !!data.codAvailable,
+      };
     } catch {
-      return 150;
+      return { shippingINR: fallbackShippingINR, codAvailable: false };
     }
-  }, [items, subtotalINR]);
+  }, [items, subtotalINR, paymentMethod]);
 
-  // Live delivery-charge quote as the pincode is entered — free at/above ₹2,000
-  // resolves instantly with no request; otherwise debounced against /api/shipping/rate.
+  // Live delivery-charge quote as the pincode is entered, debounced against
+  // /api/shipping/rate. Free shipping (subtotal ≥ ₹2,000) still shows
+  // optimistically before a pincode is entered, but COD eligibility always
+  // waits for the real pincode-serviceability check.
   useEffect(() => {
-    if (subtotalINR >= 2000 || subtotalINR === 0) {
+    if (subtotalINR === 0) {
       setShippingINR(0);
+      setCodAvailable(false);
       setShippingStatus('ready');
       return;
     }
     const pincode = form.pincode.trim();
     if (pincode.length < 4) {
-      setShippingINR(null);
-      setShippingStatus('idle');
+      setShippingINR(subtotalINR >= 2000 ? 0 : null);
+      setShippingStatus(subtotalINR >= 2000 ? 'ready' : 'idle');
+      setCodAvailable(false);
       return;
     }
     setShippingStatus('loading');
     const timer = setTimeout(() => {
-      fetchShippingRate(pincode).then((rate) => {
-        setShippingINR(rate);
+      fetchShippingRate(pincode).then(({ shippingINR, codAvailable }) => {
+        setShippingINR(shippingINR);
+        setCodAvailable(codAvailable);
         setShippingStatus('ready');
       });
     }, 500);
     return () => clearTimeout(timer);
   }, [form.pincode, subtotalINR, fetchShippingRate]);
+
+  // If COD becomes unavailable after being selected (pincode edited, cart
+  // changed), fall back to the always-available Razorpay option.
+  useEffect(() => {
+    if (!codAvailable && paymentMethod === 'COD') setPaymentMethod('RAZORPAY');
+  }, [codAvailable, paymentMethod]);
 
   const totalINR = Math.max(0, subtotalINR - discountINR + (shippingINR ?? 0));
 
@@ -161,12 +183,14 @@ export default function CheckoutPage() {
       // make sure we have a rate before creating a chargeable Razorpay order.
       let resolvedShippingINR = shippingINR;
       if (resolvedShippingINR === null) {
-        resolvedShippingINR = await fetchShippingRate(form.pincode.trim());
-        setShippingINR(resolvedShippingINR);
+        const resolved = await fetchShippingRate(form.pincode.trim());
+        resolvedShippingINR = resolved.shippingINR;
+        setShippingINR(resolved.shippingINR);
+        setCodAvailable(resolved.codAvailable);
         setShippingStatus('ready');
       }
 
-      // 1. Create Razorpay order
+      // 1. Create Razorpay order — full total for RAZORPAY, fixed ₹200 advance for COD
       const rzpRes = await fetch('/api/payment/create-razorpay-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -177,6 +201,7 @@ export default function CheckoutPage() {
           })),
           couponCode: appliedCode ?? undefined,
           pincode: form.pincode.trim(),
+          paymentMethod,
         }),
       });
 
@@ -220,7 +245,9 @@ export default function CheckoutPage() {
         currency:    rzpData.currency,
         order_id:    rzpData.razorpayOrderId,
         name:        'Minara Creation',
-        description: `Order for ${items.length} item${items.length > 1 ? 's' : ''}`,
+        description: paymentMethod === 'COD'
+          ? `₹${COD_ADVANCE_INR} advance · balance ₹${(totalINR - COD_ADVANCE_INR).toLocaleString('en-IN')} on delivery`
+          : `Order for ${items.length} item${items.length > 1 ? 's' : ''}`,
         image:       '/logo.png',
         prefill: { name: form.fullName, email: form.email, contact: form.phone },
         theme: { color: '#0F2A5B' },
@@ -436,7 +463,50 @@ export default function CheckoutPage() {
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 600, color: 'var(--color-brand-charcoal)' }}>Total</span>
                     <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 300, color: 'var(--color-brand-charcoal)' }}>{fmt(totalINR)}</span>
                   </div>
+                  {paymentMethod === 'COD' && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.7 }}>
+                        <span>Advance (pay now)</span><span style={{ fontWeight: 600 }}>{fmt(COD_ADVANCE_INR)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.7 }}>
+                        <span>Balance (cash on delivery)</span><span style={{ fontWeight: 600 }}>{fmt(Math.max(0, totalINR - COD_ADVANCE_INR))}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
+
+                {/* Payment Method */}
+                {codAvailable && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <p style={{ ...labelStyle, marginBottom: '10px' }}>Payment Method</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {([
+                        { value: 'RAZORPAY' as const, title: 'Pay Online', subtitle: 'Razorpay · Cards, UPI, Netbanking' },
+                        { value: 'COD' as const, title: 'Cash on Delivery', subtitle: `Pay ${fmt(COD_ADVANCE_INR)} advance now, rest in cash on delivery` },
+                      ]).map((opt) => (
+                        <label
+                          key={opt.value}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px',
+                            borderRadius: '8px', cursor: 'pointer',
+                            border: `1px solid ${paymentMethod === opt.value ? 'var(--color-brand-charcoal)' : 'var(--color-brand-mist)'}`,
+                            backgroundColor: paymentMethod === opt.value ? 'rgba(15,42,91,0.04)' : 'transparent',
+                          }}
+                        >
+                          <input
+                            type="radio" name="paymentMethod" value={opt.value}
+                            checked={paymentMethod === opt.value}
+                            onChange={() => setPaymentMethod(opt.value)}
+                          />
+                          <div>
+                            <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 600, color: 'var(--color-brand-charcoal)' }}>{opt.title}</p>
+                            <p style={{ margin: '2px 0 0', fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-brand-charcoal)', opacity: 0.6 }}>{opt.subtitle}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {submitError && (
                   <div style={{ padding: '12px 16px', backgroundColor: '#FEF2F2', borderRadius: '8px', border: '1px solid #FCA5A5', marginBottom: '16px' }}>
@@ -450,11 +520,17 @@ export default function CheckoutPage() {
                   whileTap={{ scale: 0.97 }}
                   style={{ width: '100%', padding: '18px 24px', backgroundColor: isSubmitting ? 'var(--color-brand-charcoal-soft)' : 'var(--color-brand-charcoal)', color: '#fff', border: 'none', borderRadius: '4px', cursor: isSubmitting ? 'wait' : 'pointer', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', transition: 'background-color 0.3s' }}
                 >
-                  {isSubmitting ? 'Processing…' : `Pay ${fmt(totalINR)} Securely`}
+                  {isSubmitting
+                    ? 'Processing…'
+                    : paymentMethod === 'COD'
+                      ? `Pay ${fmt(COD_ADVANCE_INR)} Advance`
+                      : `Pay ${fmt(totalINR)} Securely`}
                 </motion.button>
 
                 <p style={{ marginTop: '16px', textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--color-brand-charcoal)', opacity: 0.4, letterSpacing: '0.05em' }}>
-                  ✦ Powered by Razorpay · 256-bit SSL
+                  {paymentMethod === 'COD'
+                    ? `✦ ₹${COD_ADVANCE_INR} advance is non-refundable if delivery is refused · balance payable in cash to the courier`
+                    : '✦ Powered by Razorpay · 256-bit SSL'}
                 </p>
               </div>
             </div>

@@ -64,8 +64,13 @@ export default function OrderSuccessClient({ order }: { order: Order }) {
               <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-brand-charcoal)', opacity: 0.5 }}>Order Number</p>
               <p style={{ margin: '4px 0 0', fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 600, color: 'var(--color-brand-charcoal)' }}>{order.orderNumber}</p>
             </div>
-            <div style={{ padding: '6px 14px', borderRadius: '100px', backgroundColor: order.paymentStatus === 'PAID' ? '#D1FAE5' : '#FEF3C7', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: order.paymentStatus === 'PAID' ? '#065F46' : '#92400E' }}>
-              {order.paymentStatus === 'PAID' ? 'Payment Confirmed' : order.paymentStatus}
+            <div style={{
+              padding: '6px 14px', borderRadius: '100px',
+              backgroundColor: order.paymentStatus === 'PAID' ? '#D1FAE5' : order.paymentStatus === 'COD_PENDING' ? '#DBEAFE' : '#FEF3C7',
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em',
+              color: order.paymentStatus === 'PAID' ? '#065F46' : order.paymentStatus === 'COD_PENDING' ? '#1D4ED8' : '#92400E',
+            }}>
+              {order.paymentStatus === 'PAID' ? 'Payment Confirmed' : order.paymentStatus === 'COD_PENDING' ? 'Advance Paid · COD' : order.paymentStatus}
             </div>
           </div>
 
@@ -108,9 +113,22 @@ export default function OrderSuccessClient({ order }: { order: Order }) {
             )}
             <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--color-brand-mist)' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 700, color: 'var(--color-brand-charcoal)' }}>Total Paid</span>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 700, color: 'var(--color-brand-charcoal)' }}>{order.paymentMethod === 'COD' ? 'Order Total' : 'Total Paid'}</span>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 300, color: 'var(--color-brand-charcoal)' }}>{fmt(order.totalAmountINR)}</span>
             </div>
+            {order.paymentMethod === 'COD' && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.7, marginTop: '8px' }}>
+                  <span>Advance Paid</span><span style={{ fontWeight: 600 }}>{fmt(order.codAdvanceINR)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-brand-charcoal)', opacity: 0.7 }}>
+                  <span>Balance Due on Delivery</span><span style={{ fontWeight: 600 }}>{fmt(Math.max(0, order.totalAmountINR - order.codAdvanceINR))}</span>
+                </div>
+                <p style={{ marginTop: '10px', fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--color-brand-charcoal)', opacity: 0.45 }}>
+                  Non-refundable advance · pay the balance in cash to the courier.
+                </p>
+              </>
+            )}
           </div>
         </motion.div>
 

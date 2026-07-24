@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSessionUserId } from '@/lib/api-auth';
+import { COD_ADVANCE_INR } from '@/lib/payment-constants';
 
 /**
  * Razorpay rejects orders below ₹1. Guard before the SDK call so a free/near-free
@@ -29,9 +30,10 @@ const ItemSchema = z.object({
 });
 
 const RequestSchema = z.object({
-  items:      z.array(ItemSchema).min(1),
-  couponCode: z.string().optional(),
-  pincode:    z.string().min(4).max(10),
+  items:         z.array(ItemSchema).min(1),
+  couponCode:    z.string().optional(),
+  pincode:       z.string().min(4).max(10),
+  paymentMethod: z.enum(['RAZORPAY', 'COD']).default('RAZORPAY'),
 });
 
 export async function POST(request: NextRequest) {
@@ -52,7 +54,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request', issues: parsed.error.issues }, { status: 400 });
     }
 
-    const { items, couponCode, pincode } = parsed.data;
+    const { items, couponCode, pincode, paymentMethod } = parsed.data;
+    const isCod = paymentMethod === 'COD';
 
     // Server-side price verification against DB
     const { db } = await import('@/db/index');
@@ -128,13 +131,28 @@ export async function POST(request: NextRequest) {
         : Math.min(coupon.discountValue, subtotalINR);
     }
 
-    const { getItemsWeightGrams, getShippingRateINR } = await import('@/lib/delhivery');
+    const { getItemsWeightGrams, getShippingRateINR, checkCodServiceability } = await import('@/lib/delhivery');
     const weightGrams = await getItemsWeightGrams(items);
-    const { shippingINR } = await getShippingRateINR({ pincode, subtotalINR, weightGrams });
+    const { shippingINR } = await getShippingRateINR({ pincode, subtotalINR, weightGrams, paymentMethod });
     const totalINR    = Math.max(0, subtotalINR - discountINR + shippingINR);
 
-    const amountPaise = Math.round(totalINR * 100);
-    if (amountPaise < MIN_CHARGEABLE_PAISE) {
+    // COD is re-validated server-side — the client's earlier serviceability
+    // check (via /api/shipping/rate) is trust-but-verify, same posture as the
+    // coupon/stock re-validation above.
+    if (isCod) {
+      const { codAvailable } = await checkCodServiceability(pincode);
+      if (!codAvailable) {
+        return NextResponse.json({ error: 'Cash on Delivery is not available for this pincode', code: 'COD_NOT_AVAILABLE_FOR_PINCODE' }, { status: 422 });
+      }
+      if (totalINR <= COD_ADVANCE_INR) {
+        return NextResponse.json({ error: `Order total must exceed the ₹${COD_ADVANCE_INR} COD advance to use Cash on Delivery` }, { status: 422 });
+      }
+    }
+
+    // For COD, only the fixed advance is charged online now; the balance is
+    // collected as cash on delivery — see src/lib/orders.ts's codAdvanceINR handling.
+    const amountPaise = isCod ? Math.round(COD_ADVANCE_INR * 100) : Math.round(totalINR * 100);
+    if (!isCod && amountPaise < MIN_CHARGEABLE_PAISE) {
       return NextResponse.json({ error: 'Order total must be at least ₹1 to pay online' }, { status: 422 });
     }
 
@@ -149,10 +167,13 @@ export async function POST(request: NextRequest) {
       amount:   amountPaise,
       currency: 'INR',
       receipt:  `rcpt_${Date.now()}`,
-      // Locks the shipping charge to this Razorpay order so /api/payment/verify
-      // can read it back from Razorpay's own record instead of trusting the
-      // client or re-querying Delhivery (which could return a different rate).
-      notes: { shippingINR: String(shippingINR) },
+      // Locks the shipping charge (and, for COD, the payment method + advance)
+      // to this Razorpay order so /api/payment/verify can read them back from
+      // Razorpay's own record instead of trusting the client or re-deriving
+      // them (which could disagree by the time verify runs).
+      notes: isCod
+        ? { shippingINR: String(shippingINR), paymentMethod: 'COD', codAdvanceINR: String(COD_ADVANCE_INR) }
+        : { shippingINR: String(shippingINR), paymentMethod: 'RAZORPAY' },
     });
 
     return NextResponse.json({
@@ -164,6 +185,8 @@ export async function POST(request: NextRequest) {
       discountINR,
       shippingINR,
       totalINR,
+      paymentMethod,
+      ...(isCod ? { codAdvanceINR: COD_ADVANCE_INR } : {}),
     });
   } catch (err) {
     const code = classifyError(err);
