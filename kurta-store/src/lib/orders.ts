@@ -10,7 +10,7 @@ import { db } from '@/db/index';
 import {
   orders, orderItems, shippingAddresses,
   products, productSizeVariants, productImages,
-  coupons, couponUsages,
+  coupons, couponUsages, stockReservations,
 } from '@/db/schema';
 import { and, count, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
@@ -53,6 +53,16 @@ export interface CreateOrderOptions {
   paymentStatus?:   'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'COD_PENDING';
   paymentGatewayId?: string | null;
   paymentMethod?:    string | null;
+  /**
+   * The Razorpay order id this checkout reserved stock under (see
+   * create-razorpay-order). When a matching, unexpired reservation row exists
+   * for a given item, its hold is committed (stock decremented, row deleted)
+   * instead of re-checking availability from scratch. Falls back to the
+   * direct guarded decrement when absent or expired — e.g. internal/admin
+   * order creation never reserves, and a reservation can expire if the
+   * customer takes longer than the hold TTL to complete payment.
+   */
+  razorpayOrderId?: string | null;
   /**
    * When set, the order's recomputed chargeable total (subtotal − discount +
    * shipping, in paise) must equal this value or the transaction is rejected.
@@ -316,8 +326,29 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
     });
     await tx.insert(orderItems).values(itemRecords);
 
-    // 9. Decrement stock (DB-level guard via WHERE stock >= quantity)
+    // 9. Commit the stock hold: decrement stock, and either clear this item's
+    // reservation (the checkout-time hold from create-razorpay-order) or, if
+    // none exists (expired, or no razorpayOrderId — internal/admin creation),
+    // fall back to the direct guarded decrement.
+    let reservationRows: Array<{ id: string; variantId: string; quantity: number }> = [];
+    if (opts.razorpayOrderId) {
+      reservationRows = await tx
+        .select({ id: stockReservations.id, variantId: stockReservations.variantId, quantity: stockReservations.quantity })
+        .from(stockReservations)
+        .where(and(
+          eq(stockReservations.razorpayOrderId, opts.razorpayOrderId),
+          sql`${stockReservations.expiresAt} > NOW()`,
+        ));
+    }
+    const reservationByVariant = new Map(reservationRows.map((r) => [r.variantId, r]));
+
     for (const item of items) {
+      const reservation = reservationByVariant.get(item.variantId);
+      // A reservation only counts as covering this item if it was held for at
+      // least as much as we're about to take — otherwise fall through to the
+      // guarded decrement, which re-validates real stock from scratch.
+      const reservationCovers = reservation && reservation.quantity >= item.quantity;
+
       const updated = await tx.update(productSizeVariants)
         .set({ stock: sql`stock - ${item.quantity}`, updatedAt: new Date() })
         .where(and(
@@ -331,6 +362,10 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
           'CONCURRENT_INSUFFICIENT_STOCK',
           `"${p?.title || 'Product'}" size ${item.size} — stock was reduced concurrently`,
         );
+      }
+
+      if (reservationCovers) {
+        await tx.delete(stockReservations).where(eq(stockReservations.id, reservation!.id));
       }
     }
 

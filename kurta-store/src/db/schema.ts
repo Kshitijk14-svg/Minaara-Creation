@@ -115,6 +115,24 @@ export const productSizeVariants = mysqlTable('product_size_variants', {
   index('variant_stock_idx').on(t.stock),
 ]);
 
+// Short-lived hold on stock, created when a Razorpay order is minted so a
+// second concurrent buyer for the last unit is turned away before ever being
+// charged. Committed (row deleted, real stock decremented) by createOrder, or
+// left to expire — availability reads always filter WHERE expiresAt > NOW(),
+// so an uncollected expired row can never wrongly block a sale.
+export const stockReservations = mysqlTable('stock_reservations', {
+  id:              varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+  razorpayOrderId: varchar('razorpayOrderId', { length: 64 }).notNull(),
+  variantId:       varchar('variantId', { length: 36 }).notNull(),
+  quantity:        int('quantity').notNull(),
+  expiresAt:       datetime('expiresAt').notNull(),
+  createdAt:       datetime('createdAt').notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  index('reservation_rzp_order_idx').on(t.razorpayOrderId),
+  index('reservation_variant_idx').on(t.variantId),
+  index('reservation_expires_idx').on(t.expiresAt),
+]);
+
 export const productImages = mysqlTable('product_images', {
   id:        varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
   productId: varchar('productId', { length: 36 }).notNull(),

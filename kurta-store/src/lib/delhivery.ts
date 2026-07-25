@@ -214,7 +214,18 @@ export async function checkCodServiceability(pincode: string): Promise<CodServic
  * Isolated here so it's a one-spot fix if the real API expects something else.
  */
 function buildCreateShipmentBody(payload: Record<string, unknown>): { body: string; headers: Record<string, string> } {
-  const data = JSON.stringify({ shipments: [payload], pickup_location: { name: process.env.DELHIVERY_PICKUP_LOCATION } });
+  const pickupLocation = process.env.DELHIVERY_PICKUP_LOCATION?.trim();
+  if (!pickupLocation) {
+    // An unset/blank var would otherwise silently serialize to
+    // `pickup_location: {}` (JSON.stringify drops `name: undefined`), which
+    // Delhivery rejects with the exact same opaque "ClientWarehouse matching
+    // query does not exist" error as a real name mismatch — fail loud here
+    // instead so this class of misconfiguration is diagnosable from the logs.
+    throw new Error(
+      'DELHIVERY_PICKUP_LOCATION is not set — it must exactly match a warehouse name registered in Delhivery\'s Seller Panel',
+    );
+  }
+  const data = JSON.stringify({ shipments: [payload], pickup_location: { name: pickupLocation } });
   const body = new URLSearchParams({ format: 'json', data }).toString();
   return { body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } };
 }
@@ -283,10 +294,10 @@ export async function pushOrderToDelhivery(orderId: string): Promise<void> {
     const { body, headers } = buildCreateShipmentBody(payload);
     const res = await delhiveryFetch('/api/cmu/create.json', { method: 'POST', body, headers });
     const data = await res.json();
-    if (!res.ok) throw new Error(`Delhivery order create failed: ${res.status} ${JSON.stringify(data)}`);
+    if (!res.ok) throw new Error(`Delhivery order create failed (pickup_location="${process.env.DELHIVERY_PICKUP_LOCATION}"): ${res.status} ${JSON.stringify(data)}`);
 
     const { awb, shipmentRef, error } = parseCreateShipmentResponse(data);
-    if (error && !awb) throw new Error(`Delhivery order create failed: ${error}`);
+    if (error && !awb) throw new Error(`Delhivery order create failed (pickup_location="${process.env.DELHIVERY_PICKUP_LOCATION}"): ${error}`);
 
     // Delhivery is waybill-centric (no separate "order id" the way Shiprocket has
     // order_id + shipment_id) — the AWB doubles as our lookup key for incoming

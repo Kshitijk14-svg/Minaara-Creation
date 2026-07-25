@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
         expectedAmountPaise,
         shippingINR,
         codAdvanceINR,
+        razorpayOrderId:     razorpay_order_id,
       });
     } catch (err) {
       // Double-submit of the same verified payment: the order already exists —
@@ -95,6 +96,41 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true, orderId: existing.id, orderNumber: existing.orderNumber });
         }
       }
+
+      // Any other business-rule rejection means Razorpay already captured this
+      // payment but no order could be recorded (e.g. a stock reservation
+      // expired mid-payment). There's no order to attach the charge to, so
+      // refund it automatically rather than leaving the customer charged with
+      // nothing to show for it.
+      if (err instanceof OrderError) {
+        try {
+          const refund = await razorpay.payments.refund(razorpay_payment_id, {
+            amount: expectedAmountPaise,
+            speed:  'normal',
+            notes:  { reason: err.code },
+          });
+          console.error('[verify] REFUND_ISSUED', {
+            paymentId: razorpay_payment_id,
+            orderErrorCode: err.code,
+            refundId: refund.id,
+          });
+          const mapped = mapOrderError(err)!;
+          return NextResponse.json(
+            { error: `${mapped.message} — your payment has been refunded and will reflect in 5-7 business days.` },
+            { status: mapped.status },
+          );
+        } catch (refundErr) {
+          console.error('[verify] REFUND_FAILED — needs manual refund', {
+            paymentId: razorpay_payment_id,
+            orderErrorCode: err.code,
+          }, refundErr);
+          return NextResponse.json(
+            { error: `Payment was charged but could not be completed, and the automatic refund failed. Please contact support with your payment ID: ${razorpay_payment_id}` },
+            { status: 500 },
+          );
+        }
+      }
+
       throw err;
     }
 

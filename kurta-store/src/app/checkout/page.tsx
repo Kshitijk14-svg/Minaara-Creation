@@ -269,7 +269,15 @@ export default function CheckoutPage() {
           }
         },
         modal: {
-          ondismiss: () => setIsSubmitting(false),
+          ondismiss: () => {
+            setIsSubmitting(false);
+            // Best-effort — the reservation's TTL is the real backstop if this fails.
+            fetch('/api/payment/release-reservation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ razorpayOrderId: rzpData.razorpayOrderId }),
+            }).catch(() => {});
+          },
         },
       }).open();
     } catch (err) {

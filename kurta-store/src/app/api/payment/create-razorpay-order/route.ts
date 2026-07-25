@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { getSessionUserId } from '@/lib/api-auth';
 import { COD_ADVANCE_INR } from '@/lib/payment-constants';
+
+/** Stock ran out under the reservation lock — a clean, expected 409, not a fault. */
+class StockUnavailableError extends Error {}
+
+/** How long a reservation holds a unit before it's eligible to expire and free up again. */
+const RESERVATION_TTL_MS = 15 * 60 * 1000;
 
 /**
  * Razorpay rejects orders below ₹1. Guard before the SDK call so a free/near-free
@@ -59,8 +66,8 @@ export async function POST(request: NextRequest) {
 
     // Server-side price verification against DB
     const { db } = await import('@/db/index');
-    const { products, productSizeVariants, coupons, couponUsages } = await import('@/db/schema');
-    const { and, count, eq, inArray, isNull } = await import('drizzle-orm');
+    const { products, productSizeVariants, coupons, couponUsages, stockReservations } = await import('@/db/schema');
+    const { and, count, eq, inArray, isNull, sql } = await import('drizzle-orm');
 
     const productIds = [...new Set(items.map((i) => i.productId))];
     const variantIds = items.map((i) => i.variantId);
@@ -156,24 +163,80 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order total must be at least ₹1 to pay online' }, { status: 422 });
     }
 
-    // Create Razorpay order
+    // Create Razorpay order. Wrapped so stock is atomically *reserved* first —
+    // under the same row lock used by createOrder — so a second concurrent
+    // buyer for the last unit is rejected here, before ever being charged,
+    // instead of both being charged and racing inside createOrder afterward.
     const Razorpay = (await import('razorpay')).default;
     const razorpay = new Razorpay({
       key_id:     process.env.RAZORPAY_KEY_ID!,
       key_secret: process.env.RAZORPAY_KEY_SECRET!,
     });
 
-    const rzpOrder = await razorpay.orders.create({
-      amount:   amountPaise,
-      currency: 'INR',
-      receipt:  `rcpt_${Date.now()}`,
-      // Locks the shipping charge (and, for COD, the payment method + advance)
-      // to this Razorpay order so /api/payment/verify can read them back from
-      // Razorpay's own record instead of trusting the client or re-deriving
-      // them (which could disagree by the time verify runs).
-      notes: isCod
-        ? { shippingINR: String(shippingINR), paymentMethod: 'COD', codAdvanceINR: String(COD_ADVANCE_INR) }
-        : { shippingINR: String(shippingINR), paymentMethod: 'RAZORPAY' },
+    const rzpOrder = await db.transaction(async (tx) => {
+      // Lock the variant rows so a concurrent request for the same variant(s)
+      // blocks here until this transaction commits or rolls back — mirrors
+      // the row lock createOrder takes at commit time (src/lib/orders.ts).
+      await tx.execute(
+        sql`SELECT id, stock FROM product_size_variants WHERE id IN (${sql.join(variantIds.map((id) => sql`${id}`), sql`, `)}) FOR UPDATE`
+      );
+
+      const lockedVariants = await tx
+        .select({ id: productSizeVariants.id, stock: productSizeVariants.stock })
+        .from(productSizeVariants)
+        .where(inArray(productSizeVariants.id, variantIds));
+      const stockMap = new Map(lockedVariants.map((v) => [v.id, v.stock]));
+
+      // "Available" = real stock minus whatever's currently held by other
+      // not-yet-expired reservations (i.e. other in-flight checkouts).
+      const reservedRows = await tx
+        .select({
+          variantId: stockReservations.variantId,
+          reserved:  sql<number | string>`SUM(${stockReservations.quantity})`,
+        })
+        .from(stockReservations)
+        .where(and(
+          inArray(stockReservations.variantId, variantIds),
+          sql`${stockReservations.expiresAt} > NOW()`,
+        ))
+        .groupBy(stockReservations.variantId);
+      const reservedMap = new Map(reservedRows.map((r) => [r.variantId, Number(r.reserved)]));
+
+      for (const item of items) {
+        const stock     = stockMap.get(item.variantId) ?? 0;
+        const reserved  = reservedMap.get(item.variantId) ?? 0;
+        const available = stock - reserved;
+        if (available < item.quantity) {
+          throw new StockUnavailableError(`Insufficient stock for size ${item.size}`);
+        }
+      }
+
+      // Only mint the gateway order once we know the unit is actually available.
+      const order = await razorpay.orders.create({
+        amount:   amountPaise,
+        currency: 'INR',
+        receipt:  `rcpt_${Date.now()}`,
+        // Locks the shipping charge (and, for COD, the payment method + advance)
+        // to this Razorpay order so /api/payment/verify can read them back from
+        // Razorpay's own record instead of trusting the client or re-deriving
+        // them (which could disagree by the time verify runs).
+        notes: isCod
+          ? { shippingINR: String(shippingINR), paymentMethod: 'COD', codAdvanceINR: String(COD_ADVANCE_INR) }
+          : { shippingINR: String(shippingINR), paymentMethod: 'RAZORPAY' },
+      });
+
+      const expiresAt = new Date(Date.now() + RESERVATION_TTL_MS);
+      await tx.insert(stockReservations).values(
+        items.map((item) => ({
+          id:              randomUUID(),
+          razorpayOrderId: order.id,
+          variantId:       item.variantId,
+          quantity:        item.quantity,
+          expiresAt,
+        })),
+      );
+
+      return order;
     });
 
     return NextResponse.json({
@@ -189,6 +252,9 @@ export async function POST(request: NextRequest) {
       ...(isCod ? { codAdvanceINR: COD_ADVANCE_INR } : {}),
     });
   } catch (err) {
+    if (err instanceof StockUnavailableError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     const code = classifyError(err);
     const e    = err as any;
     console.error('[POST /api/payment/create-razorpay-order]', code, {
