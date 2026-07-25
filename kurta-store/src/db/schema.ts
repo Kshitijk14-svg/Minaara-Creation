@@ -265,6 +265,7 @@ export const designConfigs = mysqlTable('design_configs', {
   stats:            parsedJson<Array<{ value: number; suffix: string; label: string }>>('stats'),
   footerContent:    parsedJson<{ tagline: string; links: Array<{ href: string; label: string }> }>('footerContent'),
   haveliConfig:     parsedJson<{ imageUrl: string; heading: string; subheading: string; description: string }>('haveliConfig'),
+  hiddenSections:   parsedJson<string[]>('hiddenSections'),
   updatedAt:       datetime('updatedAt').notNull().$defaultFn(() => new Date()),
 });
 

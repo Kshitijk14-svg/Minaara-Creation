@@ -6,8 +6,11 @@ import { designConfigs } from '@/db/schema';
 import { redis } from '@/lib/redis';
 import { isAuthorized } from '@/lib/api-auth';
 import { imageUrlSchema } from '@/lib/validators';
+import { HOME_SECTION_TOGGLES } from '@/lib/design-defaults';
 import { eq } from 'drizzle-orm';
 import type { DesignConfig } from '@/types/schema';
+
+const HOME_SECTION_KEYS = HOME_SECTION_TOGGLES.map((s) => s.key) as [string, ...string[]];
 
 const CACHE_KEY = 'design_config';
 
@@ -82,6 +85,7 @@ const PatchDesignConfigSchema = z.object({
   stats:            z.array(StatItemSchema).optional(),
   footerContent:    FooterContentSchema.optional(),
   haveliConfig:     HaveliConfigSchema.optional(),
+  hiddenSections:   z.array(z.enum(HOME_SECTION_KEYS)).optional(),
 });
 
 function rowToSchema(c: {
@@ -98,6 +102,7 @@ function rowToSchema(c: {
   stats: unknown;
   footerContent: unknown;
   haveliConfig: unknown;
+  hiddenSections: unknown;
   updatedAt: Date;
 }): DesignConfig {
   return {
@@ -114,6 +119,7 @@ function rowToSchema(c: {
     stats:            (c.stats as DesignConfig['stats']) ?? undefined,
     footerContent:    (c.footerContent as DesignConfig['footerContent']) ?? undefined,
     haveliConfig:     (c.haveliConfig as DesignConfig['haveliConfig']) ?? undefined,
+    hiddenSections:   (c.hiddenSections as DesignConfig['hiddenSections']) ?? undefined,
     updatedAt:        c.updatedAt.toISOString(),
   };
 }
@@ -138,6 +144,7 @@ export async function GET() {
         stats:            designConfigs.stats,
         footerContent:    designConfigs.footerContent,
         haveliConfig:     designConfigs.haveliConfig,
+        hiddenSections:   designConfigs.hiddenSections,
         updatedAt:        designConfigs.updatedAt,
       })
       .from(designConfigs)
@@ -183,6 +190,7 @@ export async function PATCH(request: NextRequest) {
     if (parsed.data.stats !== undefined)            updateData.stats            = parsed.data.stats;
     if (parsed.data.footerContent !== undefined)    updateData.footerContent    = parsed.data.footerContent;
     if (parsed.data.haveliConfig !== undefined)     updateData.haveliConfig     = parsed.data.haveliConfig;
+    if (parsed.data.hiddenSections !== undefined)   updateData.hiddenSections   = parsed.data.hiddenSections;
 
     await db
       .update(designConfigs)
@@ -204,6 +212,7 @@ export async function PATCH(request: NextRequest) {
         stats:            designConfigs.stats,
         footerContent:    designConfigs.footerContent,
         haveliConfig:     designConfigs.haveliConfig,
+        hiddenSections:   designConfigs.hiddenSections,
         updatedAt:        designConfigs.updatedAt,
       })
       .from(designConfigs)

@@ -20,6 +20,7 @@ import {
   DEFAULT_HERO_CONTENT, DEFAULT_USP_ITEMS, DEFAULT_MARQUEE_WORDS,
   DEFAULT_ABOUT_PANELS, DEFAULT_EDITORIAL_STORIES, DEFAULT_STATS, DEFAULT_FOOTER_CONTENT,
 } from '@/lib/design-defaults';
+import type { HomeSectionKey } from '@/lib/design-defaults';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€' };
 
@@ -80,6 +81,7 @@ export default function HomeClient({
   const STATS = designConfig?.stats?.length ? designConfig.stats : DEFAULT_STATS;
   const FOOTER = designConfig?.footerContent ?? DEFAULT_FOOTER_CONTENT;
   const ACTIVE_TESTIMONIALS = testimonialsProp ?? [];
+  const HIDDEN = new Set<HomeSectionKey>((designConfig?.hiddenSections ?? []) as HomeSectionKey[]);
 
   const FALLBACK_HOTSPOTS: LookbookHotspotData[] = [
     products[2] ? { id: 'h1', x: 28, y: 36, product: products[2] } : null,
@@ -273,6 +275,7 @@ export default function HomeClient({
         </section>
 
         {/* ── USP Strip ── */}
+        {!HIDDEN.has('usp') && (
         <div style={{ position: 'relative', zIndex: 10, margin: '-24px auto 0', maxWidth: '1104px', padding: '0 24px' }}>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="usp-strip"
@@ -300,8 +303,10 @@ export default function HomeClient({
             ))}
           </motion.div>
         </div>
+        )}
 
         {/* ── BRAND MARQUEE ── */}
+        {!HIDDEN.has('marquee') && (
         <section className="sec-marquee" style={{ padding: '70px 0', backgroundColor: '#FAF8F5', overflow: 'hidden', borderBottom: '1px solid #E6E2D8' }}>
           <div style={{ marginBottom: '16px', overflow: 'hidden' }}>
             <div className="marquee-row-ltr" style={{ display: 'inline-flex', whiteSpace: 'nowrap', willChange: 'transform' }}>
@@ -330,8 +335,10 @@ export default function HomeClient({
             </div>
           </div>
         </section>
+        )}
 
         {/* ── COLLECTIONS SHOWCASE ── */}
+        {!HIDDEN.has('collections') && (
         <section id="collection" className="sec-collection" style={{ padding: '80px 0' }}>
           <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
@@ -359,9 +366,10 @@ export default function HomeClient({
             )}
           </div>
         </section>
+        )}
 
         {/* ── NEW ARRIVALS ── */}
-        {NEW_ARRIVALS.length > 0 && (
+        {!HIDDEN.has('newArrivals') && NEW_ARRIVALS.length > 0 && (
           <section className="sec-new-arrivals" style={{ padding: '80px 0', backgroundColor: '#FAF8F5' }}>
             <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
@@ -430,6 +438,7 @@ export default function HomeClient({
         )}
 
         {/* ── LOOKBOOK BANNER — Parallax ── */}
+        {!HIDDEN.has('haveli') && (
         <section className="sec-haveli" style={{ position: 'relative', height: '72vh', overflow: 'hidden', backgroundColor: '#1A1A1A', marginTop: '48px' }}>
           <div ref={lookbookImgRef} style={{ position: 'absolute', inset: '-12%', zIndex: 0 }}>
             <Image src={HAVELI.imageUrl} alt={HAVELI.heading} fill className="object-cover object-center" sizes="100vw" style={{ opacity: 0.82 }} />
@@ -447,8 +456,10 @@ export default function HomeClient({
             </div>
           </div>
         </section>
+        )}
 
         {/* ── EDITORIAL STORIES ── */}
+        {!HIDDEN.has('stories') && (
         <section className="sec-stories" style={{ padding: '80px 0', backgroundColor: '#F5F2EC' }}>
           <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <div style={{ textAlign: 'center', maxWidth: '480px', margin: '0 auto 48px' }}>
@@ -468,9 +479,10 @@ export default function HomeClient({
             )}
           </div>
         </section>
+        )}
 
         {/* ── BESTSELLERS ── */}
-        {BESTSELLERS.length > 0 && (
+        {!HIDDEN.has('bestsellers') && BESTSELLERS.length > 0 && (
           <section className="sec-bestsellers" style={{ padding: '80px 0', background: 'linear-gradient(to bottom, #FAF8F5, #F5F2EC)' }}>
             <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
@@ -500,6 +512,7 @@ export default function HomeClient({
         )}
 
         {/* ── STATS COUNTER ── */}
+        {!HIDDEN.has('stats') && (
         <section ref={statsRef} style={{ padding: '80px 0', position: 'relative', backgroundColor: 'rgba(15, 20, 40, 0.92)', borderTop: '1px solid rgba(196,172,112,0.15)', borderBottom: '1px solid rgba(196,172,112,0.15)' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '32px', textAlign: 'center' }}>
@@ -517,6 +530,7 @@ export default function HomeClient({
             </div>
           </div>
         </section>
+        )}
 
         {/* ── HORIZONTAL PINNED — ABOUT US ── */}
         <div ref={hAboutRef} style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, #F4ECE1 0%, #FAF8F5 50%, #EDE6DE 100%)' }}>
@@ -562,7 +576,7 @@ export default function HomeClient({
         </div>
 
         {/* ── TESTIMONIALS ── */}
-        {ACTIVE_TESTIMONIALS.length > 0 && (
+        {!HIDDEN.has('testimonials') && ACTIVE_TESTIMONIALS.length > 0 && (
           <section style={{ padding: '80px 0', position: 'relative' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
               <div style={{ textAlign: 'center', marginBottom: '48px' }}>
@@ -605,6 +619,7 @@ export default function HomeClient({
         )}
 
         {/* ── NEWSLETTER ── */}
+        {!HIDDEN.has('newsletter') && (
         <section style={{ padding: '80px 0', backgroundColor: '#FAF8F5' }}>
           <div className="showcase-inner" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px' }}>
             <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
@@ -653,6 +668,7 @@ export default function HomeClient({
             </motion.div>
           </div>
         </section>
+        )}
 
         {/* ── FOOTER ── */}
         <footer style={{ backgroundColor: 'rgba(23, 57, 115, 0.95)', borderTop: '1px solid rgba(196, 172, 112, 0.2)', padding: '48px 0' }}>

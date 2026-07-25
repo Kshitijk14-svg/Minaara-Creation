@@ -56,3 +56,23 @@ export const DEFAULT_FOOTER_CONTENT: FooterContent = {
     { href: '/cart', label: 'Cart' },
   ],
 };
+
+// Sections that can be individually hidden from the homepage via the admin
+// Design tab. Hero, Featured Pieces, About Minara, and the Footer are
+// deliberately excluded — Hero anchors the page's -64px top offset, Featured
+// Pieces/About Minara are the two pinned GSAP horizontal-scroll sections, and
+// Footer is the only nav/legal-links block on the page.
+export const HOME_SECTION_TOGGLES = [
+  { key: 'usp', label: 'USP Strip' },
+  { key: 'marquee', label: 'Brand Marquee' },
+  { key: 'collections', label: 'Collections Showcase' },
+  { key: 'newArrivals', label: 'New Arrivals' },
+  { key: 'haveli', label: 'Lookbook / Haveli Banner' },
+  { key: 'stories', label: 'Editorial Stories' },
+  { key: 'bestsellers', label: 'Bestsellers' },
+  { key: 'stats', label: 'Stats Counter' },
+  { key: 'testimonials', label: 'Testimonials' },
+  { key: 'newsletter', label: 'Newsletter Signup' },
+] as const;
+
+export type HomeSectionKey = typeof HOME_SECTION_TOGGLES[number]['key'];

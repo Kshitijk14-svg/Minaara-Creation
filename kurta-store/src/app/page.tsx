@@ -283,6 +283,7 @@ async function getDesignConfig(): Promise<DesignConfig | null> {
         stats:            (config.stats as unknown as DesignConfig['stats']) ?? undefined,
         footerContent:    (config.footerContent as unknown as DesignConfig['footerContent']) ?? undefined,
         haveliConfig:     (config.haveliConfig as unknown as DesignConfig['haveliConfig']) ?? undefined,
+        hiddenSections:   (config.hiddenSections as unknown as DesignConfig['hiddenSections']) ?? undefined,
         updatedAt:        config.updatedAt.toISOString(),
       };
       const { redis } = await import('@/lib/redis');

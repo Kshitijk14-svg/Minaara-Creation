@@ -252,6 +252,7 @@ export interface DesignConfig {
   stats?: StatItem[];
   footerContent?: FooterContent;
   haveliConfig?: HaveliConfig;
+  hiddenSections?: string[];
   updatedAt: string;
 }
 

@@ -8,7 +8,9 @@ import type { DesignConfig, HeroBanner, HeroContent, UspItem, AboutPanel, Editor
 import {
   DEFAULT_HERO_CONTENT, DEFAULT_USP_ITEMS, DEFAULT_MARQUEE_WORDS,
   DEFAULT_ABOUT_PANELS, DEFAULT_EDITORIAL_STORIES, DEFAULT_STATS, DEFAULT_FOOTER_CONTENT,
+  HOME_SECTION_TOGGLES,
 } from '@/lib/design-defaults';
+import type { HomeSectionKey } from '@/lib/design-defaults';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ export default function DesignTab() {
   const [theme, setTheme]                 = useState<ThemeValue>('ivory-gold');
   const [promoBanner, setPromoBanner]     = useState('');
   const [lookbookActive, setLookbookActive] = useState(true);
+  const [hiddenSections, setHiddenSections] = useState<HomeSectionKey[]>([]);
 
   const [heroContent, setHeroContent]         = useState<HeroContent>(DEFAULT_HERO_CONTENT);
   const [uspItems, setUspItems]               = useState<UspItem[]>(DEFAULT_USP_ITEMS);
@@ -59,6 +62,7 @@ export default function DesignTab() {
       setTheme((data.activeTheme as ThemeValue) ?? 'ivory-gold');
       setPromoBanner(data.promoBannerText ?? '');
       setLookbookActive(data.isLookbookActive ?? true);
+      setHiddenSections((data.hiddenSections as HomeSectionKey[] | undefined) ?? []);
       setHeroContent(data.heroContent ?? DEFAULT_HERO_CONTENT);
       setUspItems(Array.isArray(data.uspItems) && data.uspItems.length > 0 ? data.uspItems : DEFAULT_USP_ITEMS);
       setMarqueeWords(Array.isArray(data.marqueeWords) && data.marqueeWords.length > 0 ? data.marqueeWords : DEFAULT_MARQUEE_WORDS);
@@ -90,6 +94,7 @@ export default function DesignTab() {
           activeTheme:      theme,
           promoBannerText:  promoBanner || null,
           isLookbookActive: lookbookActive,
+          hiddenSections,
           heroContent,
           uspItems,
           marqueeWords,
@@ -114,6 +119,9 @@ export default function DesignTab() {
       setSaving(false);
     }
   };
+
+  const toggleSection = (key: HomeSectionKey) =>
+    setHiddenSections((hs) => hs.includes(key) ? hs.filter((k) => k !== key) : [...hs, key]);
 
   const updateBanner = (i: number, key: keyof HeroBanner, val: string) =>
     setBanners((bs) => bs.map((b, idx) => idx === i ? { ...b, [key]: val } : b));
@@ -292,6 +300,40 @@ export default function DesignTab() {
               {lookbookActive ? 'Lookbook is visible' : 'Lookbook is hidden'}
             </span>
           </label>
+        </section>
+
+        {/* ── Homepage Sections ───────────────────────────────────────── */}
+        <section>
+          <SectionHeader title="Homepage Sections" subtitle="Show or hide individual sections on the homepage. Hero, Featured Pieces, About Minara, and the Footer are always shown." />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {HOME_SECTION_TOGGLES.map(({ key, label }) => {
+              const visible = !hiddenSections.includes(key);
+              return (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }}>
+                  <div
+                    onClick={() => toggleSection(key)}
+                    style={{
+                      width: '44px', height: '24px', borderRadius: '12px',
+                      backgroundColor: visible ? 'var(--color-brand-mauve)' : 'var(--color-brand-mist)',
+                      position: 'relative', transition: 'background-color 0.2s', flexShrink: 0,
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: '3px',
+                      left: visible ? '23px' : '3px',
+                      width: '18px', height: '18px', borderRadius: '50%',
+                      backgroundColor: '#fff',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                      transition: 'left 0.2s',
+                    }} />
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-brand-charcoal)' }}>
+                    {label} {visible ? '' : '(hidden)'}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
         </section>
 
         {/* ── Hero Content ────────────────────────────────────────────── */}
