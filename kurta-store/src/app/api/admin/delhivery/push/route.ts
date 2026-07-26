@@ -28,6 +28,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Delhivery is not configured' }, { status: 409 });
     }
 
+    // Pushing an order Delhivery already accepted would mint a second waybill
+    // for the same parcel (and comes back as their opaque "already exists"
+    // rejection). Answer from our own record instead of calling them at all.
+    const [existing] = await db.select({
+      orderNumber: orders.orderNumber,
+      delhiveryOrderId: orders.delhiveryOrderId,
+      delhiveryShipmentId: orders.delhiveryShipmentId,
+    }).from(orders).where(eq(orders.id, parsed.data.orderId)).limit(1);
+
+    if (!existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+
+    if (existing.delhiveryOrderId) {
+      return NextResponse.json({
+        alreadyPushed: true,
+        delhiveryOrderId: existing.delhiveryOrderId,
+        delhiveryShipmentId: existing.delhiveryShipmentId,
+        message: `Order ${existing.orderNumber} was already sent to Delhivery (AWB ${existing.delhiveryOrderId}). No new shipment was created.`,
+      });
+    }
+
     await pushOrderToDelhivery(parsed.data.orderId);
 
     const [order] = await db.select({

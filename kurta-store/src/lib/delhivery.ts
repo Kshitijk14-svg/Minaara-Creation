@@ -237,30 +237,81 @@ function buildCreateShipmentBody(payload: Record<string, unknown>): { body: stri
  * `delhiveryShipmentId` is populated only if a secondary reference id is
  * present in the response (e.g. `refnum`), else left null.
  */
+/**
+ * Digs the one human-readable sentence out of a Delhivery response. They spread
+ * it across several field names depending on which validation tripped (`rmk` at
+ * the top level, `remarks` per package), so try each before falling back to the
+ * whole blob — a raw JSON dump is the thing we're trying not to show the admin.
+ */
+function extractDelhiveryMessage(data: any): string {
+  const packet = data?.packages?.[0] ?? data?.package ?? data;
+  for (const candidate of [packet?.rmk, data?.rmk, packet?.remarks, data?.remarks, packet?.error, data?.error]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    if (Array.isArray(candidate)) {
+      const joined = candidate.filter((r) => typeof r === 'string' && r.trim()).join('; ');
+      if (joined) return joined;
+    }
+  }
+  return JSON.stringify(data);
+}
+
 function parseCreateShipmentResponse(data: any): { awb: string | null; shipmentRef: string | null; error: string | null } {
   const packet = data?.packages?.[0] ?? data?.package ?? data;
   if (packet?.status === false || packet?.remarks?.length) {
-    return { awb: null, shipmentRef: null, error: JSON.stringify(packet?.remarks ?? data) };
+    return { awb: null, shipmentRef: null, error: extractDelhiveryMessage(data) };
   }
   const awb = packet?.waybill ?? packet?.awb ?? null;
   const shipmentRef = packet?.refnum ?? null;
-  return { awb: awb ? String(awb) : null, shipmentRef: shipmentRef ? String(shipmentRef) : null, error: awb ? null : JSON.stringify(data) };
+  return { awb: awb ? String(awb) : null, shipmentRef: shipmentRef ? String(shipmentRef) : null, error: awb ? null : extractDelhiveryMessage(data) };
 }
 
 /**
- * Builds the create-shipment failure message. Delhivery answers an unrecognised
- * `pickup_location` with the opaque "ClientWarehouse matching query does not
- * exist" — which says nothing about which knob is wrong — so that specific case
- * gets the remediation appended. This string is persisted to
- * `orders.delhiveryPushError` and rendered verbatim in the admin, so the hint
- * reaches whoever presses "Push to Delhivery" without a trip to the logs.
+ * Translates a Delhivery rejection into something the person pressing "Push to
+ * Delhivery" can act on. Their wording is written for an integrator reading API
+ * docs — "ClientWarehouse matching query does not exist" names an internal
+ * model, not the setting that's actually wrong — so the cases we've seen get a
+ * plain-English replacement and everything else falls through to their own
+ * sentence (never the raw JSON).
+ *
+ * `message` is what gets persisted to `orders.delhiveryPushError` and rendered
+ * verbatim in the admin; the untranslated `raw` rides along on the error for the
+ * server log, so diagnosing an unrecognised rejection doesn't need a DB session.
  */
-function createShipmentError(detail: string): Error {
+class DelhiveryPushError extends Error {
+  constructor(message: string, readonly raw: string) {
+    super(message);
+    this.name = 'DelhiveryPushError';
+  }
+}
+
+function createShipmentError(raw: string, orderNumber: string): DelhiveryPushError {
   const pickupLocation = process.env.DELHIVERY_PICKUP_LOCATION;
-  const hint = /ClientWarehouse matching query does not exist/i.test(detail)
-    ? ` — "${pickupLocation}" is not a warehouse registered on this Delhivery account. The name must match the Seller Panel > Settings > Pickup Locations entry exactly (case-sensitive). Diagnose with: node scripts/diagnose-delhivery.mjs`
-    : '';
-  return new Error(`Delhivery order create failed (pickup_location="${pickupLocation}"): ${detail}${hint}`);
+
+  if (/ClientWarehouse matching query does not exist/i.test(raw)) {
+    return new DelhiveryPushError(
+      `Pickup location "${pickupLocation}" is not registered on this Delhivery account. Open Delhivery's Seller Panel > Settings > Pickup Locations, copy the warehouse name exactly as shown there (it is case-sensitive), and set DELHIVERY_PICKUP_LOCATION to it.`,
+      raw,
+    );
+  }
+  if (/already\s*exist|duplicate/i.test(raw)) {
+    return new DelhiveryPushError(
+      `Delhivery already has a shipment for order ${orderNumber}, so no new one was created. Refresh this page to see the existing AWB — if it still doesn't show, the waybill needs to be copied from Delhivery's Seller Panel manually.`,
+      raw,
+    );
+  }
+  if (/unauthor|authentication|invalid token|forbidden/i.test(raw)) {
+    return new DelhiveryPushError(
+      'Delhivery rejected the API token. It may have been revoked or regenerated, or it belongs to their staging account while the app is pointed at production. Check DELHIVERY_API_TOKEN and DELHIVERY_API_BASE_URL.',
+      raw,
+    );
+  }
+  if (/serviceab|not\s*servic/i.test(raw)) {
+    return new DelhiveryPushError(
+      `Delhivery does not deliver to this order's pincode from the "${pickupLocation}" pickup location. This shipment has to be arranged another way.`,
+      raw,
+    );
+  }
+  return new DelhiveryPushError(`Delhivery rejected this shipment: ${raw}`, raw);
 }
 
 export async function pushOrderToDelhivery(orderId: string): Promise<void> {
@@ -310,10 +361,10 @@ export async function pushOrderToDelhivery(orderId: string): Promise<void> {
     const { body, headers } = buildCreateShipmentBody(payload);
     const res = await delhiveryFetch('/api/cmu/create.json', { method: 'POST', body, headers });
     const data = await res.json();
-    if (!res.ok) throw createShipmentError(`${res.status} ${JSON.stringify(data)}`);
+    if (!res.ok) throw createShipmentError(`HTTP ${res.status}: ${extractDelhiveryMessage(data)}`, order.orderNumber);
 
     const { awb, shipmentRef, error } = parseCreateShipmentResponse(data);
-    if (error && !awb) throw createShipmentError(error);
+    if (error && !awb) throw createShipmentError(error, order.orderNumber);
 
     // Delhivery is waybill-centric (no separate "order id" the way Shiprocket has
     // order_id + shipment_id) — the AWB doubles as our lookup key for incoming
@@ -332,7 +383,9 @@ export async function pushOrderToDelhivery(orderId: string): Promise<void> {
 
     console.log(`[delhivery] pushed order ${order.orderNumber} -> delhivery waybill ${awb}`);
   } catch (err: any) {
-    console.error(`[delhivery] push failed for order ${orderId}:`, err);
+    // The stored message is the translated, admin-facing one — log Delhivery's
+    // own wording alongside it so an unrecognised rejection is still diagnosable.
+    console.error(`[delhivery] push failed for order ${orderId}:`, err, err instanceof DelhiveryPushError ? `raw: ${err.raw}` : '');
     await db.update(orders).set({
       delhiveryPushError: String(err?.message || err),
       updatedAt: new Date(),
