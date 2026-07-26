@@ -10,7 +10,7 @@ import { db } from '@/db/index';
 import {
   orders, orderItems, shippingAddresses,
   products, productSizeVariants, productImages,
-  coupons, couponUsages, stockReservations,
+  coupons, couponUsages, stockReservations, counters,
 } from '@/db/schema';
 import { and, count, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
@@ -101,10 +101,47 @@ export function computeShippingINR(subtotalINR: number): number {
   return subtotalINR >= 2000 ? 0 : 150;
 }
 
-function generateOrderNumber(): string {
-  const date   = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const random = randomUUID().replace(/-/g, '').slice(0, 5).toUpperCase();
-  return `MNC-${date}-${random}`;
+const ORDER_NUMBER_PREFIX = 'LBM';
+const ORDER_COUNTER_NAME  = 'order_number';
+
+/** The transaction handle drizzle hands to `db.transaction`, without naming drizzle internals. */
+type OrderTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * `ddmmyy` on India's calendar. Deliberately not `toISOString()`, which is UTC:
+ * IST is UTC+5:30, so an order placed between midnight and 5:30am IST would be
+ * stamped with the previous day's date.
+ */
+function istDatePart(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: '2-digit',
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${part('day')}${part('month')}${part('year')}`;
+}
+
+/**
+ * `LBM-ddmmyy-N`, e.g. `LBM-260726-0`. N is a single lifetime sequence starting
+ * at 0 that never resets, so it doubles as a running order count.
+ *
+ * Must run inside the order transaction: the counter row is locked FOR UPDATE
+ * (same pattern as the variant and coupon locks above) so concurrent checkouts
+ * serialise on it rather than both reading the same value and colliding on the
+ * `orderNumber` unique index. Because the bump is part of the transaction, a
+ * rolled-back order releases its number instead of burning a gap.
+ */
+async function generateOrderNumber(tx: OrderTransaction, now: Date): Promise<string> {
+  await tx.execute(sql`SELECT value FROM counters WHERE name = ${ORDER_COUNTER_NAME} FOR UPDATE`);
+
+  const [row] = await tx.select({ value: counters.value })
+    .from(counters).where(eq(counters.name, ORDER_COUNTER_NAME)).limit(1);
+  if (!row) {
+    throw new OrderError('COUNTER_MISSING', 'Order counter row is missing — run scripts/migrate-add-order-counter.mjs');
+  }
+
+  await tx.update(counters).set({ value: row.value + 1 }).where(eq(counters.name, ORDER_COUNTER_NAME));
+
+  return `${ORDER_NUMBER_PREFIX}-${istDatePart(now)}-${row.value}`;
 }
 
 export interface CreatedOrder {
@@ -282,7 +319,7 @@ export async function createOrder(input: CreateOrderInput, opts: CreateOrderOpti
 
     // 6. Create order
     const orderId     = randomUUID();
-    const orderNumber = generateOrderNumber();
+    const orderNumber = await generateOrderNumber(tx, new Date());
     await tx.insert(orders).values({
       id: orderId,
       orderNumber,

@@ -321,6 +321,17 @@ export const testimonials = mysqlTable('testimonials', {
   index('testimonial_active_sort_idx').on(t.isActive, t.sortOrder),
 ]);
 
+/**
+ * Named monotonic counters. Currently one row (`order_number`) backing the
+ * sequential part of an order number — a row that each order transaction locks,
+ * reads, and bumps, so two concurrent checkouts can never claim the same number.
+ * `value` is the *next* number to hand out, so it seeds at 0.
+ */
+export const counters = mysqlTable('counters', {
+  name:  varchar('name', { length: 50 }).primaryKey(),
+  value: int('value').default(0).notNull(),
+});
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({

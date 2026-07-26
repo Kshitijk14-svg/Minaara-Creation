@@ -98,6 +98,11 @@ const QUERIES = [
     used: 'pushOrderToDelhivery', fix: 'node scripts/migrate-rename-shiprocket-to-delhivery.mjs' },
   { label: 'coupons (all columns)',     sql: 'SELECT * FROM coupons LIMIT 1',
     used: 'create-razorpay-order coupon lookup' },
+  // Not just a column check: createOrder throws COUNTER_MISSING if the row is
+  // absent, so an unrun migration fails every checkout, not just some feature.
+  { label: 'counters.order_number row', sql: "SELECT value FROM counters WHERE name = 'order_number'",
+    used: 'generateOrderNumber (src/lib/orders.ts)', fix: 'node scripts/migrate-add-order-counter.mjs',
+    requireRow: true },
 ];
 
 let conn = null;
@@ -113,7 +118,11 @@ if (DATABASE_URL) {
 if (conn) {
   for (const q of QUERIES) {
     try {
-      await conn.execute(q.sql);
+      const [rows] = await conn.execute(q.sql);
+      if (q.requireRow && rows.length === 0) {
+        bad(q.label, `table exists but the row is missing  [used by: ${q.used}]`, q.fix);
+        continue;
+      }
       ok(q.label);
     } catch (err) {
       bad(q.label, `${err.code || ''} ${err.sqlMessage || err.message}  [used by: ${q.used}]`,
