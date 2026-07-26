@@ -247,6 +247,22 @@ function parseCreateShipmentResponse(data: any): { awb: string | null; shipmentR
   return { awb: awb ? String(awb) : null, shipmentRef: shipmentRef ? String(shipmentRef) : null, error: awb ? null : JSON.stringify(data) };
 }
 
+/**
+ * Builds the create-shipment failure message. Delhivery answers an unrecognised
+ * `pickup_location` with the opaque "ClientWarehouse matching query does not
+ * exist" — which says nothing about which knob is wrong — so that specific case
+ * gets the remediation appended. This string is persisted to
+ * `orders.delhiveryPushError` and rendered verbatim in the admin, so the hint
+ * reaches whoever presses "Push to Delhivery" without a trip to the logs.
+ */
+function createShipmentError(detail: string): Error {
+  const pickupLocation = process.env.DELHIVERY_PICKUP_LOCATION;
+  const hint = /ClientWarehouse matching query does not exist/i.test(detail)
+    ? ` — "${pickupLocation}" is not a warehouse registered on this Delhivery account. The name must match the Seller Panel > Settings > Pickup Locations entry exactly (case-sensitive). Diagnose with: node scripts/diagnose-delhivery.mjs`
+    : '';
+  return new Error(`Delhivery order create failed (pickup_location="${pickupLocation}"): ${detail}${hint}`);
+}
+
 export async function pushOrderToDelhivery(orderId: string): Promise<void> {
   if (!isDelhiveryConfigured()) {
     console.log(`[delhivery] not configured, skipping push for order ${orderId}`);
@@ -294,10 +310,10 @@ export async function pushOrderToDelhivery(orderId: string): Promise<void> {
     const { body, headers } = buildCreateShipmentBody(payload);
     const res = await delhiveryFetch('/api/cmu/create.json', { method: 'POST', body, headers });
     const data = await res.json();
-    if (!res.ok) throw new Error(`Delhivery order create failed (pickup_location="${process.env.DELHIVERY_PICKUP_LOCATION}"): ${res.status} ${JSON.stringify(data)}`);
+    if (!res.ok) throw createShipmentError(`${res.status} ${JSON.stringify(data)}`);
 
     const { awb, shipmentRef, error } = parseCreateShipmentResponse(data);
-    if (error && !awb) throw new Error(`Delhivery order create failed (pickup_location="${process.env.DELHIVERY_PICKUP_LOCATION}"): ${error}`);
+    if (error && !awb) throw createShipmentError(error);
 
     // Delhivery is waybill-centric (no separate "order id" the way Shiprocket has
     // order_id + shipment_id) — the AWB doubles as our lookup key for incoming
