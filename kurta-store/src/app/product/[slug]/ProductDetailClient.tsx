@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/components/providers/CartProvider';
 import { useCurrency } from '@/components/providers/CurrencyProvider';
-import { SizeGuideModal } from '@/components/ui/SizeGuideModal';
 import { ImageZoomLightbox } from '@/components/ui/ImageZoomLightbox';
 import ProductVideoBubble from './ProductVideoBubble';
 import { WishlistHeart } from '@/components/ui/WishlistHeart';
@@ -205,12 +204,14 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-brand-charcoal)', fontWeight: 600 }}>
                   {selectedSize ? `Size: ${selectedSize}` : 'Select Size'}
                 </span>
-                <button
-                  onClick={() => setSizeGuideOpen(true)}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-brand-mauve)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
-                >
-                  Size Guide
-                </button>
+                {product.sizeChartImageUrl && (
+                  <button
+                    onClick={() => setSizeGuideOpen(true)}
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-brand-mauve)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                  >
+                    Size Guide
+                  </button>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -363,7 +364,15 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         </div>
       </div>
 
-      <SizeGuideModal isOpen={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} />
+      {product.sizeChartImageUrl && (
+        <ImageZoomLightbox
+          images={[product.sizeChartImageUrl]}
+          initialIndex={0}
+          isOpen={sizeGuideOpen}
+          onClose={() => setSizeGuideOpen(false)}
+          altBase={`${product.title} size chart`}
+        />
+      )}
 
       <ImageZoomLightbox
         images={images}

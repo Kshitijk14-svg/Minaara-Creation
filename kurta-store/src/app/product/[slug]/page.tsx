@@ -25,6 +25,7 @@ async function getProductBySlug(slug: string): Promise<Product | null> {
         isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
         newArrivalUntil: products.newArrivalUntil,
         reelVideoUrl: products.reelVideoUrl, reelVideoPosterUrl: products.reelVideoPosterUrl,
+        sizeChartImageUrl: products.sizeChartImageUrl,
         createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
         collectionName: collections.name, collectionSlug: collections.slug,
       })

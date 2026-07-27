@@ -37,6 +37,7 @@ const CreateProductSchema = z.object({
   images:            z.any(),
   reelVideoUrl:       z.string().max(500).nullable().optional(),
   reelVideoPosterUrl: z.string().max(500).nullable().optional(),
+  sizeChartImageUrl:  z.string().max(500).nullable().optional(),
 });
 
 function buildSizesMap(variants: Array<{ size: string; stock: number }>) {
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest) {
         isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
         newArrivalUntil: products.newArrivalUntil,
         reelVideoUrl: products.reelVideoUrl, reelVideoPosterUrl: products.reelVideoPosterUrl,
+        sizeChartImageUrl: products.sizeChartImageUrl,
         createdAt: products.createdAt, updatedAt: products.updatedAt,
         collectionName: collections.name, collectionSlug: collections.slug,
       })

@@ -28,6 +28,7 @@ interface ProductForm {
   images: string[];
   reelVideoUrl: string | null;
   reelVideoPosterUrl: string | null;
+  sizeChartImageUrl: string | null;
 }
 
 const emptyForm: ProductForm = {
@@ -39,6 +40,7 @@ const emptyForm: ProductForm = {
   images: [],
   reelVideoUrl: null,
   reelVideoPosterUrl: null,
+  sizeChartImageUrl: null,
 };
 
 function toSlug(s: string) {
@@ -105,6 +107,7 @@ export default function ProductFormClient(props: ProductFormClientProps) {
           images: p.images || [],
           reelVideoUrl: p.reelVideoUrl ?? null,
           reelVideoPosterUrl: p.reelVideoPosterUrl ?? null,
+          sizeChartImageUrl: p.sizeChartImageUrl ?? null,
         });
       } catch {
         if (!cancelled) setFormError('Failed to load product');
@@ -145,6 +148,7 @@ export default function ProductFormClient(props: ProductFormClientProps) {
         images: form.images,
         reelVideoUrl: form.reelVideoUrl,
         reelVideoPosterUrl: form.reelVideoPosterUrl,
+        sizeChartImageUrl: form.sizeChartImageUrl,
       };
       const url = isEdit ? `/api/products/${(props as { mode: 'edit'; productId: string }).productId}` : '/api/products';
       const method = isEdit ? 'PATCH' : 'POST';
@@ -329,6 +333,15 @@ export default function ProductFormClient(props: ProductFormClientProps) {
                   videoUrl={form.reelVideoUrl}
                   posterUrl={form.reelVideoPosterUrl}
                   onChange={({ videoUrl, posterUrl }) => setForm((f) => ({ ...f, reelVideoUrl: videoUrl, reelVideoPosterUrl: posterUrl }))}
+                />
+              </FormField>
+
+              {/* Size Chart */}
+              <FormField label="Size Chart" hint="Optional. One image shown to customers via the 'Size Guide' button on the product page.">
+                <ImageUploader
+                  images={form.sizeChartImageUrl ? [form.sizeChartImageUrl] : []}
+                  maxImages={1}
+                  onChange={(urls) => setForm((f) => ({ ...f, sizeChartImageUrl: urls[0] ?? null }))}
                 />
               </FormField>
 

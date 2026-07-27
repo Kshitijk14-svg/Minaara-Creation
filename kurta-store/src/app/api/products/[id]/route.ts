@@ -42,6 +42,7 @@ const UpdateProductSchema = z.object({
   images:            z.any().optional(),
   reelVideoUrl:       z.string().max(500).nullable().optional(),
   reelVideoPosterUrl: z.string().max(500).nullable().optional(),
+  sizeChartImageUrl:  z.string().max(500).nullable().optional(),
 });
 
 function buildSizesMap(variants: Array<{ size: string; stock: number }>) {
@@ -61,6 +62,7 @@ async function fetchFullProduct(id: string) {
       isBestseller: products.isBestseller, isNewArrival: products.isNewArrival,
       newArrivalUntil: products.newArrivalUntil,
       reelVideoUrl: products.reelVideoUrl, reelVideoPosterUrl: products.reelVideoPosterUrl,
+      sizeChartImageUrl: products.sizeChartImageUrl,
       createdAt: products.createdAt, updatedAt: products.updatedAt, deletedAt: products.deletedAt,
       collectionName: collections.name, collectionSlug: collections.slug,
     })

@@ -88,6 +88,7 @@ export const products = mysqlTable('products', {
   reelVideoUrl:       varchar('reelVideoUrl', { length: 500 }),
   reelVideoPosterUrl: varchar('reelVideoPosterUrl', { length: 500 }),
   reelVideoUpdatedAt: datetime('reelVideoUpdatedAt'),
+  sizeChartImageUrl: varchar('sizeChartImageUrl', { length: 500 }),
   deletedAt:         datetime('deletedAt'),
   createdAt:         datetime('createdAt').notNull().$defaultFn(() => new Date()),
   updatedAt:         datetime('updatedAt').notNull().$defaultFn(() => new Date()),

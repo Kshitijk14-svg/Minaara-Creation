@@ -60,6 +60,7 @@ export interface Product {
   normalizedImages?: ProductImage[]; // For admin dashboard or raw db uses
   reelVideoUrl?: string | null;
   reelVideoPosterUrl?: string | null;
+  sizeChartImageUrl?: string | null;
   isActive: boolean;
   isFeatured: boolean;
   isBestseller: boolean;
