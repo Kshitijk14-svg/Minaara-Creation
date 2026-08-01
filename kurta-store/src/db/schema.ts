@@ -128,6 +128,10 @@ export const stockReservations = mysqlTable('stock_reservations', {
   quantity:        int('quantity').notNull(),
   expiresAt:       datetime('expiresAt').notNull(),
   createdAt:       datetime('createdAt').notNull().$defaultFn(() => new Date()),
+  // Required to early-release this checkout's hold via /api/payment/release-reservation
+  // (e.g. Razorpay modal dismissed) — proves the caller is the buyer who started
+  // this checkout, not just someone who obtained/guessed the razorpayOrderId.
+  releaseToken:    varchar('releaseToken', { length: 36 }),
 }, (t) => [
   index('reservation_rzp_order_idx').on(t.razorpayOrderId),
   index('reservation_variant_idx').on(t.variantId),
@@ -243,7 +247,11 @@ export const couponUsages = mysqlTable('coupon_usages', {
   orderId:  varchar('orderId', { length: 36 }).notNull().unique(),
   usedAt:   datetime('usedAt').notNull().$defaultFn(() => new Date()),
 }, (t) => [
-  uniqueIndex('coupon_usage_coupon_user_unique').on(t.couponId, t.userId),
+  // Not unique: perUserLimit can exceed 1, so a coupon may legitimately have
+  // more than one usage row per user. Enforcement is app-level, under the
+  // coupon row's FOR UPDATE lock (see createOrder in src/lib/orders.ts) —
+  // that lock already makes the count-based check race-safe.
+  index('coupon_usage_coupon_user_idx').on(t.couponId, t.userId),
   index('coupon_usage_coupon_idx').on(t.couponId),
   index('coupon_usage_user_idx').on(t.userId),
 ]);
@@ -332,6 +340,22 @@ export const counters = mysqlTable('counters', {
   name:  varchar('name', { length: 50 }).primaryKey(),
   value: int('value').default(0).notNull(),
 });
+
+// A payment Razorpay captured but couldn't be attached to an order (e.g. a
+// stock reservation expired mid-payment), where the automatic refund itself
+// then failed — see the REFUND_FAILED path in src/app/api/payment/verify/route.ts.
+// Without this, that failure only exists as a console.error line; this makes
+// it a queryable worklist for the admin dashboard instead.
+export const failedRefunds = mysqlTable('failed_refunds', {
+  id:             varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+  paymentId:      varchar('paymentId', { length: 64 }).notNull(),
+  orderErrorCode: varchar('orderErrorCode', { length: 50 }).notNull(),
+  amountPaise:    int('amountPaise').notNull(),
+  createdAt:      datetime('createdAt').notNull().$defaultFn(() => new Date()),
+  resolvedAt:     datetime('resolvedAt'),
+}, (t) => [
+  index('failed_refund_resolved_idx').on(t.resolvedAt),
+]);
 
 // ── Relations ─────────────────────────────────────────────────────────────────
 

@@ -15,6 +15,14 @@ interface Stats {
   revenueToday: number;
 }
 
+interface FailedRefund {
+  id: string;
+  paymentId: string;
+  orderErrorCode: string;
+  amountPaise: number;
+  createdAt: string;
+}
+
 interface OverviewTabProps {
   onTabChange: (tab: AdminTab) => void;
   initialStats?: Stats | null;
@@ -23,6 +31,7 @@ interface OverviewTabProps {
 export default function OverviewTab({ onTabChange, initialStats }: OverviewTabProps) {
   const [stats, setStats] = useState<Stats | null>(initialStats ?? null);
   const [loading, setLoading] = useState(!initialStats);
+  const [failedRefunds, setFailedRefunds] = useState<FailedRefund[]>([]);
 
   useEffect(() => {
     // Skip client fetch when the server already provided stats
@@ -44,6 +53,22 @@ export default function OverviewTab({ onTabChange, initialStats }: OverviewTabPr
     fetchStats();
   }, [initialStats]);
 
+  useEffect(() => {
+    fetch('/api/admin/failed-refunds')
+      .then((res) => (res.ok ? res.json() : { failedRefunds: [] }))
+      .then((data) => setFailedRefunds(data.failedRefunds ?? []))
+      .catch(() => {});
+  }, []);
+
+  async function resolveFailedRefund(id: string) {
+    setFailedRefunds((prev) => prev.filter((r) => r.id !== id));
+    await fetch('/api/admin/failed-refunds', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => {});
+  }
+
   const statCards = stats ? [
     { label: 'Total Products', value: stats.totalProducts.toString(), sub: 'across all collections', tab: 'products' as AdminTab },
     { label: 'Collections', value: `${stats.activeCollections} / ${stats.totalCollections}`, sub: 'active / total', tab: 'collections' as AdminTab },
@@ -62,6 +87,42 @@ export default function OverviewTab({ onTabChange, initialStats }: OverviewTabPr
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 400, color: 'var(--color-brand-charcoal)', margin: '0 0 24px' }}>
         Overview
       </h2>
+
+      {failedRefunds.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            background: 'rgba(200,60,40,0.06)',
+            border: '1px solid rgba(200,60,40,0.35)',
+            borderRadius: '12px',
+            padding: '20px 24px',
+            marginBottom: '24px',
+          }}
+        >
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: '#a8362a', margin: '0 0 12px', fontWeight: 500 }}>
+            {failedRefunds.length} payment{failedRefunds.length > 1 ? 's' : ''} need a manual refund
+          </h3>
+          <p style={{ fontSize: '11px', color: 'var(--color-brand-charcoal)', opacity: 0.6, margin: '0 0 16px' }}>
+            Razorpay captured these payments, but no order could be recorded and the automatic refund also failed. Refund manually via the Razorpay dashboard, then mark resolved here.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {failedRefunds.map((r) => (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', fontSize: '12px', background: 'var(--admin-card-bg)', borderRadius: '8px', padding: '10px 14px' }}>
+                <span>
+                  <strong>{r.paymentId}</strong> · ₹{(r.amountPaise / 100).toLocaleString('en-IN')} · {r.orderErrorCode} · {new Date(r.createdAt).toLocaleString('en-IN')}
+                </span>
+                <button
+                  onClick={() => resolveFailedRefund(r.id)}
+                  style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, color: '#a8362a', background: 'transparent', border: '1px solid rgba(200,60,40,0.35)', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  Mark Resolved
+                </button>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {loading ? (
         <LoadingSkeleton rows={5} />

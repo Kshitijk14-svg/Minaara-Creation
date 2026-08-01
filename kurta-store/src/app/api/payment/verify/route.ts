@@ -5,11 +5,12 @@ import { sendEmail, renderOrderConfirmationEmail } from '@/lib/email';
 import { createOrder, CreateOrderSchema, mapOrderError, OrderError } from '@/lib/orders';
 import { pushOrderToDelhivery } from '@/lib/delhivery';
 import { getSessionUserId } from '@/lib/api-auth';
+import { signOrderAccessToken } from '@/lib/order-access-token';
 import { COD_ADVANCE_INR } from '@/lib/payment-constants';
 import type { Order } from '@/types/schema';
 import { invalidateTags, CacheTags } from '@/lib/cache';
 import { db } from '@/db/index';
-import { orders } from '@/db/schema';
+import { orders, failedRefunds } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 const VerifySchema = z.object({
@@ -93,7 +94,12 @@ export async function POST(request: NextRequest) {
           .where(eq(orders.paymentGatewayId, razorpay_payment_id))
           .limit(1);
         if (existing) {
-          return NextResponse.json({ success: true, orderId: existing.id, orderNumber: existing.orderNumber });
+          return NextResponse.json({
+            success: true,
+            orderId: existing.id,
+            orderNumber: existing.orderNumber,
+            orderAccessToken: signOrderAccessToken(existing.id),
+          });
         }
       }
 
@@ -124,6 +130,13 @@ export async function POST(request: NextRequest) {
             paymentId: razorpay_payment_id,
             orderErrorCode: err.code,
           }, refundErr);
+          await db.insert(failedRefunds).values({
+            paymentId:      razorpay_payment_id,
+            orderErrorCode: err.code,
+            amountPaise:    expectedAmountPaise,
+          }).catch((insertErr) => {
+            console.error('[verify] failed to record failed_refunds row', insertErr);
+          });
           return NextResponse.json(
             { error: `Payment was charged but could not be completed, and the automatic refund failed. Please contact support with your payment ID: ${razorpay_payment_id}` },
             { status: 500 },
@@ -138,11 +151,13 @@ export async function POST(request: NextRequest) {
     if (order.userId) tags.push(CacheTags.ordersByUser(order.userId));
     await invalidateTags(tags);
 
+    const orderAccessToken = signOrderAccessToken(order.id);
+
     // 4. Confirmation email — non-blocking.
     sendEmail({
       to:      order.customerEmail,
       subject: `Order Confirmed — ${order.orderNumber} | Minara Creation`,
-      html:    renderOrderConfirmationEmail(order as unknown as Order),
+      html:    renderOrderConfirmationEmail(order as unknown as Order, orderAccessToken),
     }).catch((emailErr) => {
       console.error('[verify] confirmation email failed:', emailErr);
     });
@@ -153,7 +168,7 @@ export async function POST(request: NextRequest) {
       console.error('[verify] delhivery push failed:', err);
     });
 
-    return NextResponse.json({ success: true, orderId: order.id, orderNumber: order.orderNumber });
+    return NextResponse.json({ success: true, orderId: order.id, orderNumber: order.orderNumber, orderAccessToken });
   } catch (err) {
     const mapped = mapOrderError(err);
     if (mapped) {

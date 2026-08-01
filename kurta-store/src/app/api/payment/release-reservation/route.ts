@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db/index';
 import { stockReservations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 const RequestSchema = z.object({
   razorpayOrderId: z.string().min(1),
+  releaseToken:    z.string().min(1),
 });
 
 /**
@@ -13,6 +14,10 @@ const RequestSchema = z.object({
  * closed the Razorpay modal without paying). Not required for correctness —
  * the reservation's TTL (see create-razorpay-order) is the real backstop —
  * this just frees the unit up sooner than the TTL would.
+ *
+ * releaseToken is minted per-checkout in create-razorpay-order and known only
+ * to the buyer who started it, so a caller who merely obtains/guesses a
+ * razorpayOrderId can't grief someone else's in-flight reservation.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +27,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    await db.delete(stockReservations).where(eq(stockReservations.razorpayOrderId, parsed.data.razorpayOrderId));
+    await db.delete(stockReservations).where(and(
+      eq(stockReservations.razorpayOrderId, parsed.data.razorpayOrderId),
+      eq(stockReservations.releaseToken, parsed.data.releaseToken),
+    ));
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[POST /api/payment/release-reservation]', err);

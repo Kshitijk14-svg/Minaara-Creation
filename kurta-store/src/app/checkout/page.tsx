@@ -259,9 +259,9 @@ export default function CheckoutPage() {
           });
 
           if (verifyRes.ok) {
-            const { orderId } = await verifyRes.json();
+            const { orderId, orderAccessToken } = await verifyRes.json();
             clear();
-            router.push(`/order/success/${orderId}`);
+            router.push(`/order/success/${orderId}?t=${encodeURIComponent(orderAccessToken)}`);
           } else {
             const err = await verifyRes.json();
             setSubmitError(err.error ?? 'Payment verified but order creation failed. Please contact support with your payment ID: ' + response.razorpay_payment_id);
@@ -275,7 +275,7 @@ export default function CheckoutPage() {
             fetch('/api/payment/release-reservation', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ razorpayOrderId: rzpData.razorpayOrderId }),
+              body: JSON.stringify({ razorpayOrderId: rzpData.razorpayOrderId, releaseToken: rzpData.releaseToken }),
             }).catch(() => {});
           },
         },

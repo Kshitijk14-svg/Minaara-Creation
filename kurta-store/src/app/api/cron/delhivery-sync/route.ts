@@ -11,6 +11,7 @@ import { db } from '@/db/index';
 import { orders } from '@/db/schema';
 import { and, isNotNull, notInArray, eq } from 'drizzle-orm';
 import { isDelhiveryConfigured, trackShipmentByAwb, applyIncomingStatusUpdate } from '@/lib/delhivery';
+import { safeEqual } from '@/lib/api-auth';
 import type { OrderStatus } from '@/types/schema';
 
 const TERMINAL_STATUSES: OrderStatus[] = ['DELIVERED', 'CANCELLED', 'REFUNDED', 'RTO_DELIVERED'];
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     const authHeader    = request.headers.get('Authorization');
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
-    if (!authHeader || authHeader !== expectedToken) {
+    if (!safeEqual(authHeader, expectedToken)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

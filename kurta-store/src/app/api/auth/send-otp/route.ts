@@ -31,12 +31,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid request type (SIGNIN, SIGNUP, or RESET) is required' }, { status: 400 });
     }
 
-    const { success, reset } = await ratelimit.limit(email);
-    if (!success) {
-      const retryAfterSecs = Math.ceil((reset - Date.now()) / 1000);
+    // Fail closed, like proxy.ts's IP-based otpLimiter — this is a brute-force/
+    // account-takeover surface, so a limiter error should block, not admit.
+    try {
+      const { success, reset } = await ratelimit.limit(email);
+      if (!success) {
+        const retryAfterSecs = Math.ceil((reset - Date.now()) / 1000);
+        return NextResponse.json(
+          { error: 'Too many OTP requests. Please wait before trying again.' },
+          { status: 429, headers: { 'Retry-After': String(retryAfterSecs) } },
+        );
+      }
+    } catch (limiterErr) {
+      console.error('[send-otp] rate limiter error — failing closed', limiterErr);
       return NextResponse.json(
-        { error: 'Too many OTP requests. Please wait before trying again.' },
-        { status: 429, headers: { 'Retry-After': String(retryAfterSecs) } },
+        { error: 'Service temporarily unavailable. Please try again shortly.' },
+        { status: 503 },
       );
     }
 

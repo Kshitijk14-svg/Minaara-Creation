@@ -1,8 +1,10 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import OrderSuccessClient from './OrderSuccessClient';
+import { getSession } from '@/lib/api-auth';
+import { verifyOrderAccessToken } from '@/lib/order-access-token';
 import type { Order } from '@/types/schema';
 
-async function getOrder(id: string): Promise<Order | null> {
+async function getOrder(id: string, token: string | undefined): Promise<Order | null> {
   if (process.env.DATABASE_URL?.includes('password@localhost')) return null;
 
   try {
@@ -12,6 +14,14 @@ async function getOrder(id: string): Promise<Order | null> {
 
     const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
     if (!order) return null;
+
+    // Access is granted to the owning logged-in user, or to a valid signed
+    // token — never to a bare id, so a forwarded/leaked link can't reveal
+    // this order's PII (name, address, phone, email) indefinitely.
+    const session = await getSession();
+    const sessionUserId = (session?.user as any)?.id as string | undefined;
+    const isOwner = !!sessionUserId && sessionUserId === order.userId;
+    if (!isOwner && !verifyOrderAccessToken(id, token)) return null;
 
     const [items, [address], [couponRow]] = await Promise.all([
       db.select().from(orderItems).where(eq(orderItems.orderId, id)),
@@ -66,10 +76,11 @@ async function getOrder(id: string): Promise<Order | null> {
 }
 
 export default async function OrderSuccessPage(
-  { params }: { params: Promise<{ id: string }> }
+  { params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> }
 ) {
   const { id } = await params;
-  const order  = await getOrder(id);
+  const { t }  = await searchParams;
+  const order  = await getOrder(id, t);
   if (!order) notFound();
 
   return <OrderSuccessClient order={order} />;

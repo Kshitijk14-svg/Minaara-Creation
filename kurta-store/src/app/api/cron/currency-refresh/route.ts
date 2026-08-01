@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redis, redisConfigured } from '@/lib/redis';
 import { fetchLiveRates as fetchFreshRates, CURRENCY_CACHE_KEY as CACHE_KEY } from '@/lib/exchangeRates';
+import { safeEqual } from '@/lib/api-auth';
 import type { CurrencyRates } from '@/types/schema';
 
 /**
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
   // ── Auth ──────────────────────────────────────────────────────────
   const authHeader = request.headers.get('Authorization');
   const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
-  if (!authHeader || authHeader !== expectedToken) {
+  if (!safeEqual(authHeader, expectedToken)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

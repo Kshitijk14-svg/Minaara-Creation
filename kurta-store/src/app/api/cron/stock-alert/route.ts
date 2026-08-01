@@ -3,12 +3,13 @@ import { db } from '@/db/index';
 import { products, productSizeVariants } from '@/db/schema';
 import { and, eq, isNull, lte, sql } from 'drizzle-orm';
 import { sendEmail, renderLowStockAlertEmail } from '@/lib/email';
+import { safeEqual } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   try {
     const authHeader    = request.headers.get('Authorization');
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
-    if (!authHeader || authHeader !== expectedToken) {
+    if (!safeEqual(authHeader, expectedToken)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -173,6 +173,8 @@ export async function POST(request: NextRequest) {
       key_secret: process.env.RAZORPAY_KEY_SECRET!,
     });
 
+    const releaseToken = randomUUID();
+
     const rzpOrder = await db.transaction(async (tx) => {
       // Lock the variant rows so a concurrent request for the same variant(s)
       // blocks here until this transaction commits or rolls back — mirrors
@@ -233,6 +235,7 @@ export async function POST(request: NextRequest) {
           variantId:       item.variantId,
           quantity:        item.quantity,
           expiresAt,
+          releaseToken,
         })),
       );
 
@@ -249,6 +252,7 @@ export async function POST(request: NextRequest) {
       shippingINR,
       totalINR,
       paymentMethod,
+      releaseToken,
       ...(isCod ? { codAdvanceINR: COD_ADVANCE_INR } : {}),
     });
   } catch (err) {

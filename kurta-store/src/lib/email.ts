@@ -101,7 +101,7 @@ function shell(content: string): string {
 
 // ─── Order Confirmation ──────────────────────────────────────────────────────
 
-export function renderOrderConfirmationEmail(order: Order): string {
+export function renderOrderConfirmationEmail(order: Order, orderAccessToken: string): string {
   const itemsHtml = order.items.map((item) => `
     <tr>
       <td style="padding:12px 0;border-bottom:1px solid #ede9df;">
@@ -186,7 +186,7 @@ export function renderOrderConfirmationEmail(order: Order): string {
     ${addrHtml}
 
     <div style="margin-top:32px;text-align:center;">
-      <a href="https://labelminara.com/order/success/${order.id}" style="display:inline-block;padding:14px 32px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
+      <a href="https://labelminara.com/order/success/${order.id}?t=${encodeURIComponent(orderAccessToken)}" style="display:inline-block;padding:14px 32px;background:#0f2a5b;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">
         View Your Order
       </a>
     </div>

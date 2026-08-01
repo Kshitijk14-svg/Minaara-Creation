@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db/index';
 import { stockReservations } from '@/db/schema';
 import { lte, sql } from 'drizzle-orm';
+import { safeEqual } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   try {
     const authHeader    = request.headers.get('Authorization');
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
-    if (!authHeader || authHeader !== expectedToken) {
+    if (!safeEqual(authHeader, expectedToken)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
