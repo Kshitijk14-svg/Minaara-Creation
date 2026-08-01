@@ -135,6 +135,9 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
       const data = await res.json();
       if (!res.ok) {
         setPushError(data.error || 'Push failed');
+        const errorPatch = { delhiveryPushError: data.error || 'Push failed' } as Partial<Order>;
+        setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, ...errorPatch } : o));
+        if (detailOrder?.id === orderId) setDetailOrder((d) => d ? { ...d, ...errorPatch } : d);
         return;
       }
       const patch = { delhiveryOrderId: data.delhiveryOrderId, delhiveryShipmentId: data.delhiveryShipmentId, delhiveryPushError: null } as Partial<Order>;
@@ -367,6 +370,11 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                         </div>
                                       ) : ['PAID', 'COD_PENDING'].includes(order.paymentStatus) && !['CANCELLED', 'REFUNDED'].includes(order.status) ? (
                                         <div>
+                                          {(detailOrder || order).delhiveryPushError && !pushError && (
+                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: '#a8362a', background: 'rgba(200,60,40,0.06)', border: '1px solid rgba(200,60,40,0.25)', borderRadius: '6px', padding: '8px 10px', margin: '0 0 10px' }}>
+                                              Already attempted — Delhivery rejected this order: {(detailOrder || order).delhiveryPushError}
+                                            </p>
+                                          )}
                                           <button
                                             onClick={() => handlePushToDelhivery(order.id)}
                                             disabled={pushingId === order.id}
@@ -379,7 +387,7 @@ export default function OrdersTab({ initialData }: { initialData?: any }) {
                                               opacity: pushingId === order.id ? 0.6 : 1,
                                             }}
                                           >
-                                            {pushingId === order.id ? 'Pushing…' : 'Push to Delhivery'}
+                                            {pushingId === order.id ? 'Pushing…' : (detailOrder || order).delhiveryPushError ? 'Retry Push to Delhivery' : 'Push to Delhivery'}
                                           </button>
                                           {pushError && pushingId === null && (
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: '#dc2626', margin: '8px 0 0' }}>{pushError}</p>
